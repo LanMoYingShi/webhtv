@@ -1856,7 +1856,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void switchSourceDetail(Site site, Vod match, TmdbItem item) {
-        TmdbBundle reusableBundle = activeTmdbBundle;
+        TmdbBundle reusableBundle = canReuseTmdbBundle(item) ? activeTmdbBundle : null;
         Intent intent = new Intent(getIntent());
         intent.putExtra("fusion", isFusionMode());
         intent.putExtra("key", site.getKey());
@@ -1868,6 +1868,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setIntent(intent);
         resetDetailState();
         loadContent(reusableBundle);
+    }
+
+    private boolean canReuseTmdbBundle(@Nullable TmdbItem item) {
+        if (activeTmdbBundle == null) return false;
+        if (item == null || item.getTmdbId() <= 0 || TextUtils.isEmpty(item.getMediaType())) return true;
+        TmdbItem activeItem = activeTmdbBundle.item();
+        return activeItem != null && activeItem.getTmdbId() == item.getTmdbId() && item.getMediaType().equals(activeItem.getMediaType());
     }
 
     private Vod searchCurrentSite(String keyword, Site site) {

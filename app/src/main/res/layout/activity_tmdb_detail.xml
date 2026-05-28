@@ -530,65 +530,72 @@
                                 android:textStyle="bold"
                                 android:visibility="gone" />
 
-                            <com.google.android.flexbox.FlexboxLayout
-                                android:id="@+id/detailActions"
-                                android:layout_width="match_parent"
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/detailActions"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:orientation="vertical">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/play"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:minHeight="46dp"
+                            android:singleLine="true"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold"
+                            app:backgroundTint="#2CC56F" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/changeSourceDetail"
+                                style="?attr/materialButtonOutlinedStyle"
+                                android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="16dp"
-                                app:alignItems="center"
-                                app:flexWrap="wrap">
+                                android:layout_weight="1"
+                                android:minHeight="44dp"
+                                android:minWidth="0dp"
+                                android:text="@string/play_change"
+                                android:textColor="@android:color/white"
+                                app:backgroundTint="#2B3743"
+                                app:strokeColor="@android:color/transparent" />
 
-                                <com.google.android.material.button.MaterialButton
-                                    android:id="@+id/play"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:ellipsize="end"
-                                    android:maxWidth="320dp"
-                                    android:minWidth="128dp"
-                                    android:minHeight="46dp"
-                                    android:singleLine="true"
-                                    android:textColor="@android:color/white"
-                                    android:textStyle="bold"
-                                    app:backgroundTint="#2CC56F" />
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/keep"
+                                style="?attr/materialButtonOutlinedStyle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1"
+                                android:minHeight="44dp"
+                                android:minWidth="0dp"
+                                android:textColor="@android:color/white"
+                                app:backgroundTint="#2B3743"
+                                app:strokeColor="@android:color/transparent" />
 
-                                <com.google.android.material.button.MaterialButton
-                                    android:id="@+id/changeSourceDetail"
-                                    style="?attr/materialButtonOutlinedStyle"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="10dp"
-                                    android:minWidth="92dp"
-                                    android:minHeight="46dp"
-                                    android:text="@string/play_change"
-                                    android:textColor="@android:color/white"
-                                    app:backgroundTint="#2B3743"
-                                    app:strokeColor="@android:color/transparent" />
-
-                                <com.google.android.material.button.MaterialButton
-                                    android:id="@+id/keep"
-                                    style="?attr/materialButtonOutlinedStyle"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="10dp"
-                                    android:minWidth="92dp"
-                                    android:minHeight="46dp"
-                                    android:textColor="@android:color/white"
-                                    app:backgroundTint="#2B3743"
-                                    app:strokeColor="@android:color/transparent" />
-
-                                <com.google.android.material.button.MaterialButton
-                                    android:id="@+id/rematch"
-                                    style="?attr/materialButtonOutlinedStyle"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="10dp"
-                                    android:minWidth="92dp"
-                                    android:minHeight="46dp"
-                                    android:text="@string/detail_tmdb_rematch"
-                                    android:textColor="@android:color/white"
-                                    app:backgroundTint="#2B3743"
-                                    app:strokeColor="@android:color/transparent" />
-                            </com.google.android.flexbox.FlexboxLayout>
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/rematch"
+                                style="?attr/materialButtonOutlinedStyle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1"
+                                android:minHeight="44dp"
+                                android:minWidth="0dp"
+                                android:text="@string/detail_tmdb_rematch"
+                                android:textColor="@android:color/white"
+                                app:backgroundTint="#2B3743"
+                                app:strokeColor="@android:color/transparent" />
                         </LinearLayout>
                     </LinearLayout>
 

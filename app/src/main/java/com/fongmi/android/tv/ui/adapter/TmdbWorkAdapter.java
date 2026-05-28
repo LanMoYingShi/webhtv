@@ -50,7 +50,7 @@ public class TmdbWorkAdapter extends RecyclerView.Adapter<TmdbWorkAdapter.ViewHo
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         TmdbItem item = items.get(position);
         holder.binding.title.setText(item.getTitle());
-        holder.binding.meta.setText(item.getSubtitle());
+        holder.binding.meta.setText(formatMeta(item.getSubtitle()));
         holder.binding.meta.setVisibility(TextUtils.isEmpty(item.getSubtitle()) ? View.GONE : View.VISIBLE);
         holder.binding.credit.setText(item.getCredit());
         holder.binding.credit.setVisibility(TextUtils.isEmpty(item.getCredit()) ? View.GONE : View.VISIBLE);
@@ -63,6 +63,11 @@ public class TmdbWorkAdapter extends RecyclerView.Adapter<TmdbWorkAdapter.ViewHo
         holder.binding.overview.setTextColor(light ? 0xCC12202D : 0xCCFFFFFF);
         ImgUtil.load(item.getTitle(), item.getPosterUrl(), holder.binding.poster);
         holder.binding.getRoot().setOnClickListener(view -> listener.onItemClick(item));
+    }
+
+    private String formatMeta(String meta) {
+        if (TextUtils.isEmpty(meta)) return "";
+        return meta.replace(" \u00b7 \u8bc4\u5206", "\n\u8bc4\u5206");
     }
 
     @Override
