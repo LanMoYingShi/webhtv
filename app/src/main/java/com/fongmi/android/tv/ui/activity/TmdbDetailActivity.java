@@ -1116,7 +1116,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         persistSelection();
         if (isFusionMode()) playInline();
         else {
-            VideoActivity.startDirect(this, getKeyText(), getIdText(), vod.getName(), vod.getPic(), selectedEpisode != null ? selectedEpisode.getName() : getMarkText());
+            Vod tmdbVod = playbackTmdbVod();
+            TmdbPlaybackActivity.start(this, getKeyText(), getIdText(), vod.getName(), vod.getPic(), selectedEpisode != null ? selectedEpisode.getName() : getMarkText(), playbackTmdbItem(), tmdbVod);
         }
     }
 
@@ -2091,6 +2092,39 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         return string(matchedTmdbDetail, "first_air_date", "release_date");
     }
 
+    private TmdbItem playbackTmdbItem() {
+        if (matchedTmdbItem == null) return null;
+        return new TmdbItem(
+                matchedTmdbItem.getTmdbId(),
+                matchedTmdbItem.getMediaType(),
+                TextUtils.isEmpty(vod.getName()) ? matchedTmdbItem.getTitle() : vod.getName(),
+                buildSubtitle(),
+                vod.getContent(),
+                TextUtils.isEmpty(matchedTmdbItem.getPosterUrl()) ? vod.getPic() : matchedTmdbItem.getPosterUrl(),
+                TextUtils.isEmpty(matchedTmdbItem.getBackdropUrl()) ? vod.getPic() : matchedTmdbItem.getBackdropUrl(),
+                matchedTmdbItem.getCredit());
+    }
+
+    private Vod playbackTmdbVod() {
+        if (vod == null) return null;
+        Vod item = new Vod();
+        item.setName(coalesce(vod.getName(), matchedTmdbItem == null ? "" : matchedTmdbItem.getTitle()));
+        item.setContent(coalesce(vod.getContent(), matchedTmdbItem == null ? "" : matchedTmdbItem.getOverview()));
+        item.setPic(coalesce(matchedTmdbItem == null ? "" : matchedTmdbItem.getBackdropUrl(), matchedTmdbItem == null ? "" : matchedTmdbItem.getPosterUrl(), vod.getPic()));
+        item.setYear(yearLabel());
+        item.setArea(coalesce(firstCountry(), vod.getArea()));
+        item.setTypeName(coalesce(firstGenre(), vod.getTypeName()));
+        item.setDirector(coalesce(firstCrew("Director"), vod.getDirector()));
+        item.setRemarks(coalesce(getMarkText(), vod.getRemarks()));
+        return item;
+    }
+
+    private String yearLabel() {
+        String date = releaseDate();
+        if (!TextUtils.isEmpty(date) && date.length() >= 4) return date.substring(0, 4);
+        return vod == null ? "" : vod.getYear();
+    }
+
     private String ratingLabel() {
         if (matchedTmdbDetail == null || !matchedTmdbDetail.has("vote_average") || matchedTmdbDetail.get("vote_average").isJsonNull()) return "";
         return getString(R.string.detail_score, String.format(Locale.US, "%.1f", matchedTmdbDetail.get("vote_average").getAsDouble()));
@@ -2149,6 +2183,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 if (!TextUtils.isEmpty(value)) return value.trim();
             }
         }
+        return "";
+    }
+
+    private String coalesce(String... values) {
+        for (String value : values) if (!TextUtils.isEmpty(value)) return value;
         return "";
     }
 

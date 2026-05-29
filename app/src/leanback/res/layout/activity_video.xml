@@ -390,6 +390,22 @@
             android:orientation="vertical"
             android:paddingBottom="8dp">
 
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/tmdbContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:ellipsize="end"
+                android:lineSpacingExtra="3dp"
+                android:maxLines="4"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:textColor="@color/white_80"
+                android:textSize="15sp"
+                android:visibility="gone"
+                tools:text="TMDB overview text"
+                tools:visibility="visible" />
+
             <androidx.leanback.widget.HorizontalGridView
                 android:id="@+id/flag"
                 android:layout_width="match_parent"

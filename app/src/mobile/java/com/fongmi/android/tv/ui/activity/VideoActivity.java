@@ -111,14 +111,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public class VideoActivity extends PlaybackActivity implements Clock.Callback, CustomKeyDown.Listener, TrackDialog.Listener, ControlDialog.Listener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, CastDialog.Listener, InfoDialog.Listener {
 
     private ActivityVideoBinding mBinding;
     private ViewGroup.LayoutParams mFrameParams;
-    private Observer<Result> mObserveDetail;
-    private Observer<Result> mObservePlayer;
-    private Observer<Result> mObserveSearch;
+    private Observer<Object> mObserveDetail;
+    private Observer<Object> mObservePlayer;
+    private Observer<Object> mObserveSearch;
     private EpisodeAdapter mEpisodeAdapter;
     private QualityAdapter mQualityAdapter;
     private QuickAdapter mQuickAdapter;
@@ -330,9 +331,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mFrameParams = mBinding.video.getLayoutParams();
         mBinding.progressLayout.showProgress();
         mBinding.swipeLayout.setEnabled(false);
-        mObserveDetail = this::setDetail;
-        mObservePlayer = this::setPlayer;
-        mObserveSearch = this::setSearch;
+        mObserveDetail = this::onDetailChanged;
+        mObservePlayer = this::onPlayerChanged;
+        mObserveSearch = this::onSearchChanged;
         mBroken = new ArrayList<>();
         mClock = Clock.create();
         mR1 = this::hideControl;
@@ -488,6 +489,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mViewModel.getSearch().observeForever(mObserveSearch);
     }
 
+    private void onDetailChanged(Object value) {
+        if (value instanceof Result) setDetail((Result) value);
+    }
+
+    private void onPlayerChanged(Object value) {
+        if (value instanceof Result) setPlayer((Result) value);
+    }
+
+    private void onSearchChanged(Object value) {
+        if (value instanceof Result) setSearch((Result) value);
+    }
+
     private void checkId() {
         if (getId().startsWith("push://")) getIntent().putExtra("key", SiteApi.PUSH).putExtra("id", getId().substring(7));
         if (getId().isEmpty() || getId().startsWith("msearch:")) setEmpty(false);
@@ -622,10 +635,23 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (result.hasDesc()) setText(mBinding.content, 0, result.getDesc());
         mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
-        if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), danmaku -> {
+        if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), new AutoDanmakuConsumer(result));
+    }
+
+    private final class AutoDanmakuConsumer implements Consumer<Danmaku> {
+
+        private final Result result;
+
+        private AutoDanmakuConsumer(Result result) {
+            this.result = result;
+        }
+
+        @Override
+        public void accept(Danmaku danmaku) {
+            if (isFinishing() || isDestroyed() || service() == null) return;
             if (DanmakuSetting.isSpiderFirst() && !result.getDanmaku().isEmpty()) player().addDanmaku(danmaku);
             else player().setDanmaku(danmaku);
-        });
+        }
     }
 
     @Override

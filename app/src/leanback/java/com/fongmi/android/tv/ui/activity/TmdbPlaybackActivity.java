@@ -1,39 +1,71 @@
 package com.fongmi.android.tv.ui.activity;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.text.TextUtils;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.bean.TmdbItem;
 import com.fongmi.android.tv.bean.Vod;
-import com.fongmi.android.tv.utils.ImgUtil;
 
 public class TmdbPlaybackActivity extends VideoActivity implements TmdbPlaybackEnhancer.Host {
 
     private TmdbPlaybackEnhancer tmdbEnhancer;
-    private View tmdbHero;
-    private View tmdbInfoPanel;
-    private ImageView tmdbBackdrop;
-    private ImageView tmdbPoster;
-    private ImageView tmdbInfoBackdrop;
-    private ImageView tmdbInfoPoster;
-    private TextView tmdbTitle;
-    private TextView tmdbSubtitle;
-    private TextView tmdbInfoTitle;
-    private TextView tmdbInfoSubtitle;
-    private TextView tmdbInfoOverview;
+    private TextView tmdbContent;
+
+    public static void start(Activity activity, String key, String id, String name, String pic, String mark, TmdbItem item, Vod tmdbVod) {
+        Intent intent = new Intent(activity, TmdbPlaybackActivity.class);
+        intent.putExtra("fusion", false);
+        intent.putExtra("collect", false);
+        intent.putExtra("cast", false);
+        intent.putExtra("mark", mark);
+        intent.putExtra("name", name);
+        intent.putExtra("pic", pic);
+        intent.putExtra("key", key);
+        intent.putExtra("id", id);
+        putTmdbExtras(intent, item);
+        putTmdbVod(intent, tmdbVod);
+        activity.startActivity(intent);
+    }
+
+    private static void putTmdbExtras(Intent intent, TmdbItem item) {
+        if (item == null) return;
+        intent.putExtra("tmdb_title", item.getTitle());
+        intent.putExtra("tmdb_subtitle", item.getSubtitle());
+        intent.putExtra("tmdb_overview", item.getOverview());
+        intent.putExtra("tmdb_poster", item.getPosterUrl());
+        intent.putExtra("tmdb_backdrop", item.getBackdropUrl());
+    }
+
+    private static void putTmdbVod(Intent intent, Vod vod) {
+        if (vod == null) return;
+        intent.putExtra("tmdb_vod_title", vod.getName());
+        intent.putExtra("tmdb_vod_content", vod.getContent());
+        intent.putExtra("tmdb_vod_pic", vod.getPic());
+        intent.putExtra("tmdb_vod_year", vod.getYear());
+        intent.putExtra("tmdb_vod_area", vod.getArea());
+        intent.putExtra("tmdb_vod_type", vod.getTypeName());
+        intent.putExtra("tmdb_vod_director", vod.getDirector());
+        intent.putExtra("tmdb_vod_remark", vod.getRemarks());
+    }
 
     @Override
     protected void initView(android.os.Bundle savedInstanceState) {
         tmdbEnhancer = new TmdbPlaybackEnhancer(this);
         super.initView(savedInstanceState);
-        initTmdbChrome();
+        initTmdbContent();
+        hideIntroButton();
     }
 
     @Override
     protected void onDetailReady(Vod item) {
-        applyTmdbArtwork(item.getName(), item.getRemarks(), item.getContent(), item.getPic(), item.getPic());
-        tmdbEnhancer.onDetailReady(item);
+        Vod merged = mergeIntentTmdbVod(item);
+        if (merged != item) updateVod(merged);
+        showTmdbContent(merged);
+        hideIntroButton();
+        if (!hasIntentTmdbVod()) tmdbEnhancer.onDetailReady(item);
     }
 
     @Override
@@ -54,40 +86,61 @@ public class TmdbPlaybackActivity extends VideoActivity implements TmdbPlaybackE
     @Override
     public void applyTmdbVod(Vod vod) {
         updateVod(vod);
+        showTmdbContent(vod);
+        hideIntroButton();
     }
 
     @Override
     public void applyTmdbArtwork(String title, String subtitle, String overview, String poster, String backdrop) {
-        if (tmdbInfoPanel == null || tmdbInfoBackdrop == null || tmdbInfoPoster == null) return;
-        ImgUtil.load(title, backdrop, tmdbInfoBackdrop);
-        ImgUtil.load(title, poster, tmdbInfoPoster);
-        tmdbInfoTitle.setText(title);
-        tmdbInfoSubtitle.setText(subtitle);
-        tmdbInfoOverview.setText(overview);
-        tmdbInfoOverview.setVisibility(overview == null || overview.isEmpty() ? View.GONE : View.VISIBLE);
-        tmdbInfoPanel.setVisibility(View.VISIBLE);
-        hidePlainHeader();
+        // Keep the original playback page chrome; TMDB data is merged into the normal fields.
     }
 
-    private void initTmdbChrome() {
-        tmdbHero = findViewById(R.id.tmdbHero);
-        tmdbBackdrop = findViewById(R.id.tmdbBackdrop);
-        tmdbPoster = findViewById(R.id.tmdbPoster);
-        tmdbTitle = findViewById(R.id.tmdbTitle);
-        tmdbSubtitle = findViewById(R.id.tmdbSubtitle);
-        tmdbInfoPanel = findViewById(R.id.tmdbInfoPanel);
-        tmdbInfoBackdrop = findViewById(R.id.tmdbInfoBackdrop);
-        tmdbInfoPoster = findViewById(R.id.tmdbInfoPoster);
-        tmdbInfoTitle = findViewById(R.id.tmdbInfoTitle);
-        tmdbInfoSubtitle = findViewById(R.id.tmdbInfoSubtitle);
-        tmdbInfoOverview = findViewById(R.id.tmdbInfoOverview);
+    private Vod mergeIntentTmdbVod(Vod source) {
+        if (!hasIntentTmdbVod()) return source;
+        Vod vod = new Vod();
+        vod.setId(source.getId());
+        vod.setName(coalesce(getStringExtra("tmdb_vod_title"), getStringExtra("tmdb_title"), source.getName()));
+        vod.setPic(coalesce(getStringExtra("tmdb_vod_pic"), getStringExtra("tmdb_backdrop"), getStringExtra("tmdb_poster"), source.getPic()));
+        vod.setContent(coalesce(getStringExtra("tmdb_vod_content"), getStringExtra("tmdb_overview"), source.getContent()));
+        vod.setYear(coalesce(getStringExtra("tmdb_vod_year"), source.getYear()));
+        vod.setArea(coalesce(getStringExtra("tmdb_vod_area"), source.getArea()));
+        vod.setTypeName(coalesce(getStringExtra("tmdb_vod_type"), source.getTypeName()));
+        vod.setDirector(coalesce(getStringExtra("tmdb_vod_director"), source.getDirector()));
+        vod.setRemarks(coalesce(getStringExtra("tmdb_vod_remark"), source.getRemarks()));
+        vod.setPlayFrom(source.getPlayFrom());
+        vod.setPlayUrl(source.getPlayUrl());
+        vod.setFlags(source.getFlags());
+        vod.setSite(source.getSite());
+        return vod;
     }
 
-    private void hidePlainHeader() {
-        int[] ids = {R.id.name, R.id.remark, R.id.row1, R.id.director, R.id.actor, R.id.row2};
-        for (int id : ids) {
-            View view = findViewById(id);
-            if (view != null) view.setVisibility(View.GONE);
-        }
+    private boolean hasIntentTmdbVod() {
+        return !TextUtils.isEmpty(getStringExtra("tmdb_vod_title")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_content")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_year")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_area")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_type")) || !TextUtils.isEmpty(getStringExtra("tmdb_title")) || !TextUtils.isEmpty(getStringExtra("tmdb_overview"));
+    }
+
+    private String getStringExtra(String key) {
+        String value = getIntent().getStringExtra(key);
+        return value == null ? "" : value;
+    }
+
+    private String coalesce(String... values) {
+        for (String value : values) if (!TextUtils.isEmpty(value)) return value;
+        return "";
+    }
+
+    private void initTmdbContent() {
+        tmdbContent = findViewById(R.id.tmdbContent);
+    }
+
+    private void showTmdbContent(Vod vod) {
+        if (tmdbContent == null || vod == null) return;
+        String content = vod.getContent();
+        tmdbContent.setText(content);
+        tmdbContent.setVisibility(TextUtils.isEmpty(content) ? View.GONE : View.VISIBLE);
+    }
+
+    private void hideIntroButton() {
+        View content = findViewById(R.id.content);
+        if (content != null) content.setVisibility(View.GONE);
     }
 }

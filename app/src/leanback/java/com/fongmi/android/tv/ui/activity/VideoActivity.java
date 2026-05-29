@@ -93,14 +93,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.Listener, TrackDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, Clock.Callback {
 
     private ActivityVideoBinding mBinding;
     private ViewGroup.LayoutParams mFrameParams;
-    private Observer<Result> mObserveDetail;
-    private Observer<Result> mObservePlayer;
-    private Observer<Result> mObserveSearch;
+    private Observer<Object> mObserveDetail;
+    private Observer<Object> mObservePlayer;
+    private Observer<Object> mObserveSearch;
     private EpisodeAdapter mEpisodeAdapter;
     private QualityAdapter mQualityAdapter;
     private ArrayAdapter mArrayAdapter;
@@ -299,9 +300,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mFrameParams = mBinding.video.getLayoutParams();
         mClock = Clock.create(mBinding.widget.clock);
         mKeyDown = CustomKeyDownVod.create(this);
-        mObserveDetail = this::setDetail;
-        mObservePlayer = this::setPlayer;
-        mObserveSearch = this::setSearch;
+        mObserveDetail = this::onDetailChanged;
+        mObservePlayer = this::onPlayerChanged;
+        mObserveSearch = this::onSearchChanged;
         mBroken = new ArrayList<>();
         mR1 = this::hideControl;
         mR2 = this::updateFocus;
@@ -414,6 +415,18 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mViewModel.getResult().observeForever(mObserveDetail);
         mViewModel.getPlayer().observeForever(mObservePlayer);
         mViewModel.getSearch().observeForever(mObserveSearch);
+    }
+
+    private void onDetailChanged(Object value) {
+        if (value instanceof Result) setDetail((Result) value);
+    }
+
+    private void onPlayerChanged(Object value) {
+        if (value instanceof Result) setPlayer((Result) value);
+    }
+
+    private void onSearchChanged(Object value) {
+        if (value instanceof Result) setSearch((Result) value);
     }
 
     private void checkCast() {
@@ -533,10 +546,23 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
         mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
-        if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), danmaku -> {
+        if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), new AutoDanmakuConsumer(result));
+    }
+
+    private final class AutoDanmakuConsumer implements Consumer<Danmaku> {
+
+        private final Result result;
+
+        private AutoDanmakuConsumer(Result result) {
+            this.result = result;
+        }
+
+        @Override
+        public void accept(Danmaku danmaku) {
+            if (isFinishing() || isDestroyed() || service() == null) return;
             if (DanmakuSetting.isSpiderFirst() && !result.getDanmaku().isEmpty()) player().addDanmaku(danmaku);
             else player().setDanmaku(danmaku);
-        });
+        }
     }
 
     @Override
