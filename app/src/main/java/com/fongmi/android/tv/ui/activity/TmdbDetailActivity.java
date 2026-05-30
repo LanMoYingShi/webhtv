@@ -287,6 +287,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.rematchFusion.setOnClickListener(view -> showManualTmdbMatchDialog());
         binding.changeSource.setOnClickListener(view -> changeSource());
         binding.changeSourceDetail.setOnClickListener(view -> changeSource());
+        binding.changeSource.setOnLongClickListener(view -> openGlobalSourceSearch());
+        binding.changeSourceDetail.setOnLongClickListener(view -> openGlobalSourceSearch());
         binding.themeMode.setOnClickListener(view -> cycleThemeMode());
         binding.overview.setOnClickListener(view -> toggleOverview());
         binding.overviewToggle.setOnClickListener(view -> toggleOverview());
@@ -2238,7 +2240,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void changeSource() {
         if (vod == null) return;
-        String keyword = vod != null && !TextUtils.isEmpty(vod.getName()) ? vod.getName() : getNameText();
+        String keyword = getSourceSearchKeyword();
         Notify.show(getString(R.string.detail_source_searching));
         Task.execute(() -> {
             SourceMatch match = searchChangeSource(keyword);
@@ -2251,6 +2253,19 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 switchSourceDetail(match.site(), match.vod(), matchedTmdbItem);
             });
         });
+    }
+
+    private boolean openGlobalSourceSearch() {
+        String keyword = getSourceSearchKeyword();
+        if (TextUtils.isEmpty(keyword)) return false;
+        SearchActivity.direct(this, keyword);
+        return true;
+    }
+
+    private String getSourceSearchKeyword() {
+        if (vod != null && !TextUtils.isEmpty(vod.getName())) return vod.getName();
+        String keyword = getTmdbSearchQuery();
+        return TextUtils.isEmpty(keyword) ? getNameText() : keyword;
     }
 
     private void loadPersonDetail(TmdbPerson person) {
