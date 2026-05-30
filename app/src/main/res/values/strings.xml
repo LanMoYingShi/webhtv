@@ -313,9 +313,17 @@
     <string name="detail_person_loading">Loading cast details...</string>
     <string name="detail_person_biography">Biography</string>
     <string name="detail_person_empty">No person information</string>
+    <string name="detail_person_info">Personal Info</string>
+    <string name="detail_person_photos">Photos</string>
     <string name="detail_person_works">Works</string>
     <string name="detail_person_work_hint">Works are from TMDB. Select one to search it in the current source.</string>
     <string name="detail_person_work_count">%1$d works</string>
+    <string name="detail_filter_all">All</string>
+    <string name="detail_filter_cast">Cast</string>
+    <string name="detail_filter_crew">Crew</string>
+    <string name="detail_filter_director">Director</string>
+    <string name="detail_filter_movie">Movies</string>
+    <string name="detail_filter_tv">TV</string>
     <string name="detail_work_searching">Searching current source for %1$s...</string>
     <string name="detail_work_not_found">No current-source result for %1$s</string>
     <string name="detail_work_global_searching">No current-source result. Searching all sites for %1$s...</string>

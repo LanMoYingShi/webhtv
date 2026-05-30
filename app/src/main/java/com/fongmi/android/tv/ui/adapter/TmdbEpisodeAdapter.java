@@ -1,9 +1,11 @@
 package com.fongmi.android.tv.ui.adapter;
 
+import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -134,6 +136,8 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
         holder.binding.overview.setTextColor(hasStill || !light ? 0xE6FFFFFF : 0xB315202B);
         holder.binding.badge.setText(episodeBadge(tmdbEpisode));
         holder.binding.badge.setVisibility(TextUtils.isEmpty(holder.binding.badge.getText()) ? View.GONE : View.VISIBLE);
+        applyBadgeStyle(holder.binding.date, hasStill);
+        applyBadgeStyle(holder.binding.badge, hasStill);
         TmdbCardFocusHelper.bind(
                 holder.binding.getRoot(),
                 activated ? (light ? 0xFFE5F7EC : 0x6630A86B) : (light ? 0xEEFFFFFF : 0xCC16202A),
@@ -163,6 +167,20 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
             params.height = dp(holder.itemView, compact ? 78 : 190);
         }
         holder.binding.getRoot().setLayoutParams(params);
+        if (params instanceof ViewGroup.MarginLayoutParams marginParams) {
+            marginParams.setMarginEnd(dp(holder.itemView, mode == Mode.GRID ? 8 : 12));
+            marginParams.bottomMargin = dp(holder.itemView, mode == Mode.GRID ? 10 : 0);
+            holder.binding.getRoot().setLayoutParams(marginParams);
+        }
+    }
+
+    private void applyBadgeStyle(TextView view, boolean hasStill) {
+        boolean darkBadge = hasStill || !light;
+        view.setTextColor(darkBadge ? 0xE6FFFFFF : 0xCC15202B);
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(darkBadge ? 0xB3000000 : 0x1F15202B);
+        background.setCornerRadius(dp(view, 12));
+        view.setBackground(background);
     }
 
     private String episodeTitle(Episode episode, int number, String tmdbTitle) {

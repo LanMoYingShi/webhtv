@@ -55,6 +55,7 @@ import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.ActivityTmdbDetailBinding;
 import com.fongmi.android.tv.databinding.DialogTmdbEpisodeBinding;
 import com.fongmi.android.tv.db.AppDatabase;
+import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.player.PlayerHelper;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.service.TmdbService;
@@ -69,7 +70,6 @@ import com.fongmi.android.tv.ui.controller.VodPlayerControlController;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
 import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
-import com.fongmi.android.tv.ui.dialog.TmdbPersonDialog;
 import com.fongmi.android.tv.ui.dialog.TmdbSearchDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
 import com.fongmi.android.tv.utils.ImgUtil;
@@ -2320,9 +2320,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void saveInlineHistory() {
         if (!isFusionMode() || history == null || service() == null || player() == null) return;
         if (!player().isEmpty()) {
+            history.setCreateTime(System.currentTimeMillis());
             history.setPosition(player().getPosition());
             history.setDuration(player().getDuration());
-            if (history.canSave() && !Setting.isIncognito()) history.merge().save();
+            if (history.canSave() && !Setting.isIncognito()) {
+                history.merge().save();
+                RefreshEvent.history();
+            }
         }
     }
 
@@ -2441,17 +2445,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             Notify.show(getString(R.string.detail_tmdb_need_key));
             return;
         }
-        Notify.show(getString(R.string.detail_person_loading));
-        Task.execute(() -> {
-            try {
-                JsonObject personDetail = tmdbService.person(person.getPersonId(), tmdbConfig);
-                TmdbPerson profile = tmdbService.personProfile(personDetail, tmdbConfig);
-                List<TmdbItem> works = tmdbService.personWorks(personDetail, tmdbConfig);
-                runOnAliveUi(() -> TmdbPersonDialog.show(this, profile, works, this::openRelatedItem));
-            } catch (Throwable e) {
-                runOnAliveUi(() -> Notify.show(TextUtils.isEmpty(e.getMessage()) ? getString(R.string.detail_person_empty) : e.getMessage()));
-            }
-        });
+        TmdbPersonActivity.start(this, person, getKeyText());
     }
 
     private void openRelatedItem(TmdbItem item) {

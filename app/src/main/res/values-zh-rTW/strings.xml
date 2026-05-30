@@ -307,9 +307,17 @@
     <string name="detail_person_loading">正在載入演員詳情...</string>
     <string name="detail_person_biography">簡介</string>
     <string name="detail_person_empty">暫無人物資訊</string>
+    <string name="detail_person_info">個人資訊</string>
+    <string name="detail_person_photos">相冊</string>
     <string name="detail_person_works">參與作品</string>
     <string name="detail_person_work_hint">作品來自 TMDB，選擇後會在目前站源搜尋。</string>
     <string name="detail_person_work_count">%1$d 部作品</string>
+    <string name="detail_filter_all">全部</string>
+    <string name="detail_filter_cast">出演</string>
+    <string name="detail_filter_crew">製作</string>
+    <string name="detail_filter_director">導演</string>
+    <string name="detail_filter_movie">電影</string>
+    <string name="detail_filter_tv">劇集</string>
     <string name="detail_work_searching">正在目前站源搜尋 %1$s...</string>
     <string name="detail_work_not_found">目前站源未找到 %1$s</string>
     <string name="detail_work_global_searching">目前站源未找到，正在全站搜尋 %1$s...</string>

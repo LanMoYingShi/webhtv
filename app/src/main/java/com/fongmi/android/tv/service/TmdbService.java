@@ -133,7 +133,7 @@ public class TmdbService {
         ensureReady(config);
         HttpUrl url = apiBuilder(config.getApiBase() + "/person/" + personId, config)
                 .addQueryParameter("language", config.getLanguage())
-                .addQueryParameter("append_to_response", "combined_credits")
+                .addQueryParameter("append_to_response", "combined_credits,images,translations,external_ids")
                 .build();
         if (System.currentTimeMillis() >= 0) return requestJson(url.toString(), config, "person", PERSON_CACHE_TTL, "TMDB 演员作品返回为空", "TMDB 演员作品失败: HTTP ");
         try (Response response = execute(url.toString(), config)) {
@@ -167,8 +167,8 @@ public class TmdbService {
 
     public List<TmdbPerson> creators(JsonObject detail, @NonNull TmdbConfig config) {
         Map<Integer, CrewEntry> entries = new LinkedHashMap<>();
-        addAggregateCrew(entries, array(detail, "aggregate_credits", "crew"), config);
         addCreditCrew(entries, array(detail, "credits", "crew"), config);
+        addAggregateCrew(entries, array(detail, "aggregate_credits", "crew"), config);
         List<CrewEntry> creators = new ArrayList<>(entries.values());
         creators.sort(Comparator.comparingInt(this::creatorEntryOrder));
         List<TmdbPerson> items = new ArrayList<>();
@@ -334,8 +334,20 @@ public class TmdbService {
                 TextUtils.join(" · ", parts),
                 image(config.getImageBase(), string(detail, "profile_path")),
                 string(detail, "known_for_department"),
-                string(detail, "biography")
+                personBiography(detail, config)
         );
+    }
+
+    public List<String> personPhotos(JsonObject person, @NonNull TmdbConfig config) {
+        List<String> items = new ArrayList<>();
+        for (JsonElement element : array(person, "images", "profiles")) {
+            if (!element.isJsonObject()) continue;
+            String url = image(config.getImageBase(), string(element.getAsJsonObject(), "file_path"));
+            if (TextUtils.isEmpty(url) || items.contains(url)) continue;
+            items.add(url);
+            if (items.size() >= 24) break;
+        }
+        return items;
     }
 
     public List<TmdbItem> recommendations(JsonObject detail, @NonNull TmdbConfig config) {
@@ -366,6 +378,14 @@ public class TmdbService {
         addWorks(items, array(person, "combined_credits", "cast"), config);
         addWorks(items, array(person, "combined_credits", "crew"), config);
         return items.values().stream().sorted(Comparator.comparing(this::sortDate).reversed()).limit(30).toList();
+    }
+
+    public List<TmdbItem> personCastWorks(JsonObject person, @NonNull TmdbConfig config) {
+        return items(array(person, "combined_credits", "cast"), config).stream().sorted(Comparator.comparing(this::sortDate).reversed()).limit(60).toList();
+    }
+
+    public List<TmdbItem> personCrewWorks(JsonObject person, @NonNull TmdbConfig config) {
+        return items(array(person, "combined_credits", "crew"), config).stream().sorted(Comparator.comparing(this::sortDate).reversed()).limit(60).toList();
     }
 
     public String image(String base, String path) {
@@ -567,6 +587,37 @@ public class TmdbService {
             if (!TextUtils.isEmpty(value) && values.size() < 2) values.add(value);
         }
         return values.isEmpty() ? "" : "又名 " + TextUtils.join(" / ", values);
+    }
+
+    private String personBiography(JsonObject detail, TmdbConfig config) {
+        String current = string(detail, "biography");
+        if (!TextUtils.isEmpty(current)) return current;
+        JsonArray translations = array(detail, "translations", "translations");
+        String preferred = biographyForLanguage(translations, config.getLanguage());
+        if (!TextUtils.isEmpty(preferred)) return preferred;
+        preferred = biographyForLanguage(translations, languageRoot(config.getLanguage()));
+        if (!TextUtils.isEmpty(preferred)) return preferred;
+        preferred = biographyForLanguage(translations, "zh-CN");
+        if (!TextUtils.isEmpty(preferred)) return preferred;
+        preferred = biographyForLanguage(translations, "zh");
+        if (!TextUtils.isEmpty(preferred)) return preferred;
+        return biographyForLanguage(translations, "en");
+    }
+
+    private String biographyForLanguage(JsonArray translations, String language) {
+        if (TextUtils.isEmpty(language)) return "";
+        String target = language.toLowerCase(Locale.ROOT);
+        for (JsonElement element : translations) {
+            if (!element.isJsonObject()) continue;
+            JsonObject object = element.getAsJsonObject();
+            String iso = string(object, "iso_639_1");
+            String name = string(object, "name", "english_name");
+            String code = string(object, "iso_3166_1");
+            if (!matchesLanguage(target, iso, code, name)) continue;
+            String biography = string(object.has("data") && object.get("data").isJsonObject() ? object.getAsJsonObject("data") : null, "biography");
+            if (!TextUtils.isEmpty(biography)) return biography;
+        }
+        return "";
     }
 
     private List<TmdbItem> items(JsonArray array, TmdbConfig config) {

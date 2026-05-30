@@ -89,6 +89,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private HomeWebController mWeb;
     private Result mResult;
     private Clock mClock;
+    private boolean initialLoaded;
 
     private Site getHome() {
         return VodConfig.get().getHome();
@@ -211,15 +212,26 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         return new Callback() {
             @Override
             public void success() {
+                loadInitialContent();
                 showContent();
             }
 
             @Override
             public void error(String msg) {
                 Notify.show(msg);
+                loadInitialContent();
                 showContent();
             }
         };
+    }
+
+    private void loadInitialContent() {
+        if (initialLoaded) return;
+        initialLoaded = true;
+        setTitle();
+        setFunc();
+        getHistory();
+        getVideo();
     }
 
     private void showContent() {
@@ -360,7 +372,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
                 }
                 break;
             case HISTORY:
-                getHistory();
+                if (mWeb != null && mWeb.isVisible()) mWeb.reload();
+                else getHistory();
                 break;
             case SIZE:
                 getVideo();
