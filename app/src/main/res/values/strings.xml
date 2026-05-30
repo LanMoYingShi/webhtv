@@ -329,7 +329,8 @@
     <string name="detail_tmdb_rematch">Change match</string>
     <string name="detail_tmdb_match_saved">TMDB match saved</string>
     <string name="detail_tmdb_skip">Skip</string>
-    <string name="detail_tmdb_need_key">Configure a TMDB API key first</string>
+    <string name="detail_tmdb_need_key">Configure a TMDB token or API key first</string>
+    <string name="detail_tmdb_site_disabled">TMDB matching is disabled for this source</string>
     <string name="detail_theme_auto">Auto</string>
     <string name="detail_theme_dark">Dark</string>
     <string name="detail_theme_light">Light</string>
@@ -344,6 +345,15 @@
     <string name="setting_configured">Configured</string>
     <string name="setting_unconfigured">Not configured</string>
     <string name="dialog_tmdb_key">TMDB API key</string>
+    <string name="dialog_tmdb_token">Access token or API key</string>
     <string name="dialog_tmdb_lang">TMDB language</string>
+    <string name="dialog_tmdb_api_base">API host</string>
+    <string name="dialog_tmdb_image_base">Image host</string>
+    <string name="dialog_tmdb_site_rules">Site rules: enabled sources line 1, empty means all; excluded keywords line 2, separated by ;</string>
+    <string name="dialog_tmdb_site_rules_value">Enabled: %1$s\nExclude: %2$s</string>
+    <string name="dialog_tmdb_site_enabled_prefix">Enabled:</string>
+    <string name="dialog_tmdb_site_exclude_prefix">Exclude:</string>
+    <string name="dialog_tmdb_site_manage">Select enabled sources</string>
+    <string name="dialog_tmdb_site_clear">Default all</string>
 
 </resources>

@@ -323,7 +323,8 @@
     <string name="detail_tmdb_rematch">重新匹配</string>
     <string name="detail_tmdb_match_saved">已記錄 TMDB 匹配</string>
     <string name="detail_tmdb_skip">跳過</string>
-    <string name="detail_tmdb_need_key">請先設定 TMDB API Key</string>
+    <string name="detail_tmdb_need_key">請先設定 TMDB Token 或 API Key</string>
+    <string name="detail_tmdb_site_disabled">目前站源未啟用 TMDB 匹配</string>
     <string name="detail_theme_auto">自動</string>
     <string name="detail_theme_dark">深色</string>
     <string name="detail_theme_light">淺色</string>
@@ -338,6 +339,15 @@
     <string name="setting_configured">已設定</string>
     <string name="setting_unconfigured">未設定</string>
     <string name="dialog_tmdb_key">TMDB API Key</string>
+    <string name="dialog_tmdb_token">Access Token 或 API Key</string>
     <string name="dialog_tmdb_lang">TMDB 語言</string>
+    <string name="dialog_tmdb_api_base">API 域名</string>
+    <string name="dialog_tmdb_image_base">圖片域名</string>
+    <string name="dialog_tmdb_site_rules">站源規則：第 1 行關聯站源，空為全部；第 2 行排除關鍵字，支援 ; 分割</string>
+    <string name="dialog_tmdb_site_rules_value">關聯：%1$s\n排除：%2$s</string>
+    <string name="dialog_tmdb_site_enabled_prefix">關聯：</string>
+    <string name="dialog_tmdb_site_exclude_prefix">排除：</string>
+    <string name="dialog_tmdb_site_manage">選擇關聯站源</string>
+    <string name="dialog_tmdb_site_clear">預設全部</string>
 
 </resources>

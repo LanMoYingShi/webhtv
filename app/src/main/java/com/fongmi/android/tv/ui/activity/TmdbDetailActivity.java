@@ -629,7 +629,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void loadContent(@Nullable TmdbBundle reusableBundle) {
         int generation = ++loadGeneration;
         Task.execute(() -> {
-            Future<TmdbLoadResult> tmdbFuture = reusableBundle == null && tmdbConfig.isReady() ? Task.executor().submit(this::loadTmdbResult) : null;
+            boolean tmdbAllowed = isTmdbAllowedForCurrentSite();
+            Future<TmdbLoadResult> tmdbFuture = reusableBundle == null && tmdbConfig.isReady() && tmdbAllowed ? Task.executor().submit(this::loadTmdbResult) : null;
             Vod loadedVod = null;
             String error = null;
             try {
@@ -696,7 +697,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         bindPage();
         focusInlinePlayerPanel();
         maybeAutoPlayInline();
-        if (allowMatchDialog && tmdbConfig.isReady() && bundle == null && initialTmdbItem == null) showTmdbMatchDialog(searchItems);
+        if (allowMatchDialog && canMatchTmdb() && bundle == null && initialTmdbItem == null) showTmdbMatchDialog(searchItems);
     }
 
     private TmdbLoadResult loadTmdbResult() {
@@ -739,7 +740,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         renderEpisodes();
         bindTmdbSection();
         focusInlinePlayerPanel();
-        if (tmdbConfig.isReady() && bundle == null && initialTmdbItem == null) showTmdbMatchDialog(result == null ? List.of() : result.searchItems());
+        if (canMatchTmdb() && bundle == null && initialTmdbItem == null) showTmdbMatchDialog(result == null ? List.of() : result.searchItems());
     }
 
     private TmdbBundle loadTmdbBundle(TmdbItem item) throws Exception {
@@ -792,7 +793,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void showTmdbMatchDialog(List<TmdbItem> items, boolean skippable) {
-        if (!canTouchUi()) return;
+        if (!canTouchUi() || !canMatchTmdb()) return;
         TmdbSearchDialog.create(this)
                 .title(getString(R.string.detail_tmdb_match_title))
                 .query(getTmdbSearchQuery())
@@ -806,6 +807,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void showManualTmdbMatchDialog() {
         if (!tmdbConfig.isReady()) {
             Notify.show(getString(R.string.detail_tmdb_need_key));
+            return;
+        }
+        if (!isTmdbAllowedForCurrentSite()) {
+            Notify.show(R.string.detail_tmdb_site_disabled);
             return;
         }
         binding.loading.setVisibility(View.VISIBLE);
@@ -826,7 +831,20 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private TmdbItem getCachedTmdbMatch() {
+        if (!isTmdbAllowedForCurrentSite()) return null;
         return Setting.getTmdbMatchCache().find(getKeyText(), getIdText());
+    }
+
+    private boolean canMatchTmdb() {
+        return tmdbConfig != null && tmdbConfig.isReady() && isTmdbAllowedForCurrentSite();
+    }
+
+    private boolean isTmdbAllowedForCurrentSite() {
+        if (tmdbConfig == null) return false;
+        Site site = getCurrentSite();
+        String key = site == null || site.isEmpty() ? getKeyText() : site.getKey();
+        String name = site == null || site.isEmpty() ? getKeyText() : site.getName();
+        return tmdbConfig.isSiteEnabled(key, name);
     }
 
     private void saveTmdbMatch(TmdbItem item) {
@@ -882,12 +900,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void enrichVod() {
         if (matchedTmdbItem != null) {
             if (!TextUtils.isEmpty(matchedTmdbItem.getTitle())) vod.setName(matchedTmdbItem.getTitle());
-            if (TextUtils.isEmpty(vod.getPic())) vod.setPic(matchedTmdbItem.getPosterUrl());
+            if (!TextUtils.isEmpty(matchedTmdbItem.getPosterUrl())) vod.setPic(matchedTmdbItem.getPosterUrl());
         }
         String overview = tmdbOverview();
         if (!TextUtils.isEmpty(overview)) vod.setContent(overview);
         if (matchedTmdbDetail == null) return;
-        if ((TextUtils.isEmpty(vod.getPic()) || vod.getPic().startsWith("data:")) && matchedTmdbItem != null) {
+        String poster = tmdbService.image(tmdbConfig.getImageBase(), string(matchedTmdbDetail, "poster_path"));
+        if (!TextUtils.isEmpty(poster)) {
+            vod.setPic(poster);
+        } else if ((TextUtils.isEmpty(vod.getPic()) || vod.getPic().startsWith("data:")) && matchedTmdbItem != null) {
             vod.setPic(matchedTmdbItem.getPosterUrl());
         }
         if (TextUtils.isEmpty(vod.getDirector())) {
@@ -950,14 +971,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             binding.overviewToggle.setVisibility(View.GONE);
             return;
         }
-        binding.overview.setMaxLines(Integer.MAX_VALUE);
-        binding.overview.setEllipsize(null);
+        applyOverviewState();
         binding.overview.post(() -> {
-            if (binding.overview.getLineCount() > 5) {
+            if (isOverviewOverflowing()) {
                 binding.overviewToggle.setVisibility(View.VISIBLE);
                 applyOverviewState();
             } else {
                 binding.overviewToggle.setVisibility(View.GONE);
+                binding.overview.setMaxLines(Integer.MAX_VALUE);
+                binding.overview.setEllipsize(null);
             }
         });
     }
@@ -972,6 +994,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.overview.setMaxLines(overviewExpanded ? Integer.MAX_VALUE : 5);
         binding.overview.setEllipsize(overviewExpanded ? null : TextUtils.TruncateAt.END);
         binding.overviewToggle.setText(overviewExpanded ? R.string.detail_collapse : R.string.detail_expand);
+    }
+
+    private boolean isOverviewOverflowing() {
+        if (binding.overview.getLineCount() > 5) return true;
+        android.text.Layout layout = binding.overview.getLayout();
+        return layout != null && layout.getLineCount() >= 5 && layout.getEllipsisCount(layout.getLineCount() - 1) > 0;
     }
 
     private void bindSource() {
@@ -1096,7 +1124,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void fetchSeasonIfNeeded(int seasonNumber) {
-        if (seasonNumber < 0 || tmdbSeasonEpisodes.containsKey(seasonNumber) || matchedTmdbItem == null || !"tv".equalsIgnoreCase(matchedTmdbItem.getMediaType()) || !tmdbConfig.isReady()) return;
+        if (seasonNumber < 0 || tmdbSeasonEpisodes.containsKey(seasonNumber) || matchedTmdbItem == null || !"tv".equalsIgnoreCase(matchedTmdbItem.getMediaType()) || !canMatchTmdb()) return;
         tmdbSeasonEpisodes.put(seasonNumber, List.of());
         Task.execute(() -> {
             try {
@@ -1161,10 +1189,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void bindTmdbSection() {
+        if (!isTmdbAllowedForCurrentSite()) {
+            binding.tmdbSection.setVisibility(View.GONE);
+            return;
+        }
         boolean hasCast = !castItems.isEmpty();
         boolean hasPhotos = !tmdbEpisodePhotos.isEmpty();
         boolean hasRelated = !relatedItems.isEmpty();
-        binding.tmdbSection.setVisibility(hasPhotos || hasCast || hasRelated || matchedTmdbDetail != null || tmdbConfig.isReady() ? View.VISIBLE : View.GONE);
+        binding.tmdbSection.setVisibility(hasPhotos || hasCast || hasRelated || matchedTmdbDetail != null || canMatchTmdb() ? View.VISIBLE : View.GONE);
 
         binding.episodePhotoTitle.setVisibility(hasPhotos ? View.VISIBLE : View.GONE);
         binding.episodePhotoList.setVisibility(hasPhotos ? View.VISIBLE : View.GONE);
@@ -1182,6 +1214,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (!tmdbConfig.isReady()) {
             binding.tmdbStatus.setVisibility(View.VISIBLE);
             binding.tmdbStatus.setText(R.string.detail_tmdb_need_key);
+        } else if (!isTmdbAllowedForCurrentSite()) {
+            binding.tmdbStatus.setVisibility(View.VISIBLE);
+            binding.tmdbStatus.setText(R.string.detail_tmdb_site_disabled);
         } else if (!hasPhotos && !hasCast && !hasRelated) {
             binding.tmdbStatus.setVisibility(View.VISIBLE);
             binding.tmdbStatus.setText(R.string.detail_tmdb_empty);
@@ -1231,7 +1266,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void showTmdbEpisodeDetail(Episode episode, int episodeNumber) {
-        if (matchedTmdbItem == null || !"tv".equalsIgnoreCase(matchedTmdbItem.getMediaType()) || selectedSeasonNumber < 0 || episodeNumber <= 0 || !tmdbConfig.isReady()) {
+        if (matchedTmdbItem == null || !"tv".equalsIgnoreCase(matchedTmdbItem.getMediaType()) || selectedSeasonNumber < 0 || episodeNumber <= 0 || !canMatchTmdb()) {
             Notify.show(R.string.detail_tmdb_empty);
             return;
         }
@@ -2219,7 +2254,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void loadPersonDetail(TmdbPerson person) {
-        if (!tmdbConfig.isReady()) {
+        if (!canMatchTmdb()) {
             Notify.show(getString(R.string.detail_tmdb_need_key));
             return;
         }

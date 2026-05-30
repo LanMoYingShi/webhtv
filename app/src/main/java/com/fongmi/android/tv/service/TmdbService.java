@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.HttpUrl;
+import okhttp3.Request;
 import okhttp3.Response;
 
 public class TmdbService {
@@ -38,7 +39,7 @@ public class TmdbService {
 
     public JsonObject searchRaw(@NonNull String keyword, @NonNull TmdbConfig config) throws Exception {
         ensureReady(config);
-        try (Response response = com.github.catvod.net.OkHttp.newCall(searchUrl(keyword, config)).execute()) {
+        try (Response response = execute(searchUrl(keyword, config), config)) {
             if (response.body() == null) throw new IllegalStateException("TMDB 搜索返回为空");
             if (!response.isSuccessful()) throw new IllegalStateException("TMDB 搜索失败: HTTP " + response.code());
             return App.gson().fromJson(response.body().string(), JsonObject.class);
@@ -70,14 +71,13 @@ public class TmdbService {
         String append = "tv".equalsIgnoreCase(item.getMediaType())
                 ? "images,credits,aggregate_credits,recommendations,similar,translations,external_ids,content_ratings"
                 : "images,credits,recommendations,similar,translations,external_ids,release_dates";
-        HttpUrl url = HttpUrl.parse(config.getApiBase() + "/" + item.getMediaType() + "/" + item.getTmdbId()).newBuilder()
-                .addQueryParameter("api_key", config.getApiKey())
+        HttpUrl url = apiBuilder(config.getApiBase() + "/" + item.getMediaType() + "/" + item.getTmdbId(), config)
                 .addQueryParameter("language", config.getLanguage())
                 .addQueryParameter("append_to_response", append)
                 .addQueryParameter("include_image_language", config.getLanguage() + ",null")
                 .build();
-        if (System.currentTimeMillis() >= 0) return requestJson(url.toString(), "detail", DETAIL_CACHE_TTL, "TMDB 详情返回为空", "TMDB 详情失败: HTTP ");
-        try (Response response = com.github.catvod.net.OkHttp.newCall(url.toString()).execute()) {
+        if (System.currentTimeMillis() >= 0) return requestJson(url.toString(), config, "detail", DETAIL_CACHE_TTL, "TMDB 详情返回为空", "TMDB 详情失败: HTTP ");
+        try (Response response = execute(url.toString(), config)) {
             if (response.body() == null) throw new IllegalStateException("TMDB 详情返回为空");
             if (!response.isSuccessful()) throw new IllegalStateException("TMDB 详情失败: HTTP " + response.code());
             return App.gson().fromJson(response.body().string(), JsonObject.class);
@@ -86,14 +86,13 @@ public class TmdbService {
 
     public JsonObject season(@NonNull TmdbItem item, int seasonNumber, @NonNull TmdbConfig config) throws Exception {
         ensureReady(config);
-        HttpUrl url = HttpUrl.parse(config.getApiBase() + "/tv/" + item.getTmdbId() + "/season/" + seasonNumber).newBuilder()
-                .addQueryParameter("api_key", config.getApiKey())
+        HttpUrl url = apiBuilder(config.getApiBase() + "/tv/" + item.getTmdbId() + "/season/" + seasonNumber, config)
                 .addQueryParameter("language", config.getLanguage())
                 .addQueryParameter("append_to_response", "images,credits,aggregate_credits,translations")
                 .addQueryParameter("include_image_language", config.getLanguage() + ",null")
                 .build();
-        if (System.currentTimeMillis() >= 0) return requestJson(url.toString(), "season", SEASON_CACHE_TTL, "TMDB 分季返回为空", "TMDB 分季失败: HTTP ");
-        try (Response response = com.github.catvod.net.OkHttp.newCall(url.toString()).execute()) {
+        if (System.currentTimeMillis() >= 0) return requestJson(url.toString(), config, "season", SEASON_CACHE_TTL, "TMDB 分季返回为空", "TMDB 分季失败: HTTP ");
+        try (Response response = execute(url.toString(), config)) {
             if (response.body() == null) throw new IllegalStateException("TMDB 分季返回为空");
             if (!response.isSuccessful()) throw new IllegalStateException("TMDB 分季失败: HTTP " + response.code());
             return App.gson().fromJson(response.body().string(), JsonObject.class);
@@ -102,35 +101,32 @@ public class TmdbService {
 
     public JsonObject season(@NonNull TmdbItem item, int seasonNumber, @NonNull TmdbConfig config, JsonObject detail) throws Exception {
         ensureReady(config);
-        HttpUrl url = HttpUrl.parse(config.getApiBase() + "/tv/" + item.getTmdbId() + "/season/" + seasonNumber).newBuilder()
-                .addQueryParameter("api_key", config.getApiKey())
+        HttpUrl url = apiBuilder(config.getApiBase() + "/tv/" + item.getTmdbId() + "/season/" + seasonNumber, config)
                 .addQueryParameter("language", config.getLanguage())
                 .addQueryParameter("append_to_response", "images,credits,aggregate_credits,translations")
                 .addQueryParameter("include_image_language", config.getLanguage() + ",null")
                 .build();
-        return requestJson(url.toString(), "season", seasonCacheTtl(detail), "TMDB 分季返回为空", "TMDB 分季失败: HTTP ");
+        return requestJson(url.toString(), config, "season", seasonCacheTtl(detail), "TMDB 分季返回为空", "TMDB 分季失败: HTTP ");
     }
 
     public JsonObject episode(@NonNull TmdbItem item, int seasonNumber, int episodeNumber, @NonNull TmdbConfig config, JsonObject detail) throws Exception {
         ensureReady(config);
-        HttpUrl url = HttpUrl.parse(config.getApiBase() + "/tv/" + item.getTmdbId() + "/season/" + seasonNumber + "/episode/" + episodeNumber).newBuilder()
-                .addQueryParameter("api_key", config.getApiKey())
+        HttpUrl url = apiBuilder(config.getApiBase() + "/tv/" + item.getTmdbId() + "/season/" + seasonNumber + "/episode/" + episodeNumber, config)
                 .addQueryParameter("language", config.getLanguage())
                 .addQueryParameter("append_to_response", "images,credits,translations")
                 .addQueryParameter("include_image_language", config.getLanguage() + ",null")
                 .build();
-        return requestJson(url.toString(), "episode", seasonCacheTtl(detail), "TMDB 单集返回为空", "TMDB 单集失败: HTTP ");
+        return requestJson(url.toString(), config, "episode", seasonCacheTtl(detail), "TMDB 单集返回为空", "TMDB 单集失败: HTTP ");
     }
 
     public JsonObject person(int personId, @NonNull TmdbConfig config) throws Exception {
         ensureReady(config);
-        HttpUrl url = HttpUrl.parse(config.getApiBase() + "/person/" + personId).newBuilder()
-                .addQueryParameter("api_key", config.getApiKey())
+        HttpUrl url = apiBuilder(config.getApiBase() + "/person/" + personId, config)
                 .addQueryParameter("language", config.getLanguage())
                 .addQueryParameter("append_to_response", "combined_credits")
                 .build();
-        if (System.currentTimeMillis() >= 0) return requestJson(url.toString(), "person", PERSON_CACHE_TTL, "TMDB 演员作品返回为空", "TMDB 演员作品失败: HTTP ");
-        try (Response response = com.github.catvod.net.OkHttp.newCall(url.toString()).execute()) {
+        if (System.currentTimeMillis() >= 0) return requestJson(url.toString(), config, "person", PERSON_CACHE_TTL, "TMDB 演员作品返回为空", "TMDB 演员作品失败: HTTP ");
+        try (Response response = execute(url.toString(), config)) {
             if (response.body() == null) throw new IllegalStateException("TMDB 演员作品返回为空");
             if (!response.isSuccessful()) throw new IllegalStateException("TMDB 演员作品失败: HTTP " + response.code());
             return App.gson().fromJson(response.body().string(), JsonObject.class);
@@ -291,8 +287,7 @@ public class TmdbService {
     }
 
     private String searchUrl(String keyword, TmdbConfig config) {
-        return HttpUrl.parse(config.getApiBase() + "/search/multi").newBuilder()
-                .addQueryParameter("api_key", config.getApiKey())
+        return apiBuilder(config.getApiBase() + "/search/multi", config)
                 .addQueryParameter("language", config.getLanguage())
                 .addQueryParameter("query", keyword)
                 .build()
@@ -303,11 +298,23 @@ public class TmdbService {
         if (!config.sanitize().isReady()) throw new IllegalStateException("请先配置 TMDB API Key");
     }
 
-    private JsonObject requestJson(String url, String type, long ttl, String emptyMessage, String failurePrefix) throws Exception {
+    private HttpUrl.Builder apiBuilder(String url, TmdbConfig config) {
+        HttpUrl.Builder builder = HttpUrl.parse(url).newBuilder();
+        if (TextUtils.isEmpty(config.getAccessToken())) builder.addQueryParameter("api_key", config.getApiKey());
+        return builder;
+    }
+
+    private Response execute(String url, TmdbConfig config) throws Exception {
+        Request.Builder builder = new Request.Builder().url(url);
+        if (!TextUtils.isEmpty(config.getAccessToken())) builder.header("Authorization", "Bearer " + config.getAccessToken());
+        return com.github.catvod.net.OkHttp.client().newCall(builder.build()).execute();
+    }
+
+    private JsonObject requestJson(String url, TmdbConfig config, String type, long ttl, String emptyMessage, String failurePrefix) throws Exception {
         File file = cacheFile(type, url);
         JsonObject cached = readCache(file, ttl);
         if (cached != null) return cached;
-        try (Response response = com.github.catvod.net.OkHttp.newCall(url).execute()) {
+        try (Response response = execute(url, config)) {
             if (response.body() == null) throw new IllegalStateException(emptyMessage);
             if (!response.isSuccessful()) throw new IllegalStateException(failurePrefix + response.code());
             String body = response.body().string();
