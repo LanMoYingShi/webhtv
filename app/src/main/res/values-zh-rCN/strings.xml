@@ -415,6 +415,7 @@
     <string name="detail_theme_light">浅色</string>
     <string name="detail_quality">画质</string>
     <string name="setting_tmdb">TMDB 配置</string>
+    <string name="setting_audio_source">音频源配置</string>
     <string name="setting_detail_open_mode">详情打开方式</string>
     <string name="setting_detail_open_fusion">沉浸融合</string>
     <string name="setting_detail_open_enhanced">增强详情</string>
@@ -432,6 +433,9 @@
     <string name="dialog_tmdb_site_exclude_prefix">排除：</string>
     <string name="dialog_tmdb_site_manage">选择关联站源</string>
     <string name="dialog_tmdb_site_clear">默认全部</string>
+    <string name="dialog_audio_site_rules">音频源规则：关联站源或关键词，用 ; 分隔。默认：[音];[听]</string>
+    <string name="dialog_audio_site_manage">选择音频源</string>
+    <string name="dialog_audio_site_default">默认 [音]/[听]</string>
 
     <string name="dialog_tmdb_test">测试连接</string>
     <string name="dialog_tmdb_testing">正在测试 TMDB...</string>

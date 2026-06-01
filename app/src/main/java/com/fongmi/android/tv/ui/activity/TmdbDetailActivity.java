@@ -75,6 +75,7 @@ import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TmdbSearchDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
 import com.fongmi.android.tv.utils.ImgUtil;
+import com.fongmi.android.tv.utils.AudioUtil;
 import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
@@ -197,6 +198,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private static void start(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem, boolean fusion, boolean autoPlay) {
+        if (!TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && AudioUtil.isAudioSiteEnabled(key)) {
+            VideoActivity.startDirect(activity, key, id, name, pic, mark);
+            return;
+        }
         Intent intent = new Intent(activity, TmdbDetailActivity.class);
         intent.putExtra("fusion", fusion);
         intent.putExtra("auto_play", autoPlay);

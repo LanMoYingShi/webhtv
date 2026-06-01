@@ -157,6 +157,10 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         return true;
     }
 
+    protected boolean shouldPauseOnBackground() {
+        return PlayerSetting.isBackgroundOff();
+    }
+
     protected void seekTo(long time) {
         mController.seekTo(player().getPosition() + time);
         mController.play();
@@ -382,7 +386,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     @Override
     protected void onStop() {
         super.onStop();
-        if (isOwner() && PlayerSetting.isBackgroundOff() && mController != null) mController.pause();
+        if (isOwner() && shouldPauseOnBackground() && mController != null) mController.pause();
     }
 
     @Override

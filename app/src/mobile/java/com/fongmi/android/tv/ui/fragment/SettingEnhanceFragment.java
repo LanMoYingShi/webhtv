@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.databinding.FragmentSettingEnhanceBinding;
 import com.fongmi.android.tv.server.Server;
@@ -54,6 +55,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.detailOpenMode.setOnClickListener(this::setDetailOpenMode);
         mBinding.searchThread.setOnClickListener(this::setSearchThread);
         mBinding.tmdbConfig.setOnClickListener(this::setTmdbConfig);
+        mBinding.audioConfig.setOnClickListener(this::setAudioConfig);
         mBinding.driveCheck.setOnClickListener(this::setDriveCheck);
         mBinding.debugLog.setOnClickListener(this::setDebugLog);
         mBinding.shellProxy.setOnClickListener(this::setShellProxy);
@@ -65,6 +67,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.detailOpenModeText.setText(getDetailOpenMode());
         mBinding.searchThreadText.setText(String.valueOf(Setting.getSearchThread()));
         mBinding.tmdbConfigText.setText(TmdbConfig.objectFrom(Setting.getTmdbConfig()).isReady() ? R.string.setting_configured : R.string.setting_unconfigured);
+        mBinding.audioConfigText.setText(AudioConfig.objectFrom(Setting.getAudioConfig()).getDisplayRules());
         mBinding.driveCheckText.setText(getSwitch(Setting.isDriveCheck()));
         mBinding.debugLogText.setText(getSwitch(Setting.isDebugLog()));
         mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()));
@@ -115,6 +118,10 @@ public class SettingEnhanceFragment extends BaseFragment {
 
     private void setTmdbConfig(View view) {
         FeatureConfigDialog.create(requireActivity()).type(FeatureConfigDialog.TMDB).onDismiss(this::setText).show();
+    }
+
+    private void setAudioConfig(View view) {
+        FeatureConfigDialog.create(requireActivity()).type(FeatureConfigDialog.AUDIO).onDismiss(this::setText).show();
     }
 
     private void setDriveCheck(View view) {

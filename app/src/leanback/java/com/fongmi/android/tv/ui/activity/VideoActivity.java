@@ -75,6 +75,7 @@ import com.fongmi.android.tv.ui.dialog.TitleDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
 import com.fongmi.android.tv.utils.Clock;
 import com.fongmi.android.tv.utils.FileChooser;
+import com.fongmi.android.tv.utils.AudioUtil;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.Notify;
@@ -144,7 +145,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private static boolean canOpenEnhancedDetail(String key, boolean cast) {
-        return !cast && !TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key);
+        return !cast && !TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && !AudioUtil.isAudioSiteEnabled(key);
     }
 
     private static boolean shouldOpenFusionDetail(String key, boolean cast) {
@@ -160,10 +161,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     public static void startDirect(Activity activity, String key, String id, String name, String pic, String mark) {
+        if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         startInternal(activity, key, id, name, pic, mark, false, false, true);
     }
 
     public static void start(Activity activity, String url) {
+        if (AudioUtil.isAudioUrl(url)) {
+            AudioActivity.start(activity, url, url, "", null);
+            return;
+        }
         start(activity, SiteApi.PUSH, url, url);
     }
 
@@ -184,6 +190,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private static void startInternal(Activity activity, String key, String id, String name, String pic, String mark, boolean collect, boolean cast, boolean skipIntermediate) {
+        if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         if (!skipIntermediate && shouldOpenIntermediateDetail(key, cast)) {
             TmdbDetailActivity.start(activity, key, id, name, pic, mark);
             return;
@@ -560,6 +567,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         }
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
         mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
+        if (AudioActivity.startIfAudio(this, getHistoryKey(), getKey(), getFlag().getFlag(), mHistory.getVodName(), mHistory.getVodPic(), mEpisodeAdapter.getItems(), mEpisodeAdapter.getPosition(), result, getSite().getTimeout())) {
+            finish();
+            return;
+        }
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
         if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), new AutoDanmakuConsumer(result));
     }
@@ -630,6 +641,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     public void onItemClick(Result result) {
+        if (AudioActivity.startIfAudio(this, getHistoryKey(), getKey(), getFlag().getFlag(), mHistory.getVodName(), mHistory.getVodPic(), mEpisodeAdapter.getItems(), mEpisodeAdapter.getPosition(), result, getSite().getTimeout())) {
+            finish();
+            return;
+        }
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
     }
 

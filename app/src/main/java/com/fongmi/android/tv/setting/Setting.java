@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat;
 import android.webkit.WebView;
 
 import com.fongmi.android.tv.App;
+import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.bean.TmdbMatchCache;
 import com.github.catvod.crawler.DebugLogStore;
@@ -230,6 +231,18 @@ public class Setting {
 
     public static void putTmdbConfig(String value) {
         Prefers.put("tmdb_config", value);
+    }
+
+    public static String getAudioConfig() {
+        return Prefers.getString("audio_config");
+    }
+
+    public static void putAudioConfig(String value) {
+        Prefers.put("audio_config", value);
+    }
+
+    public static boolean isAudioSiteEnabled(String key, String name) {
+        return AudioConfig.objectFrom(getAudioConfig()).isSiteEnabled(key, name);
     }
 
     public static TmdbMatchCache getTmdbMatchCache() {

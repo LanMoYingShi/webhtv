@@ -152,6 +152,12 @@
             android:screenOrientation="sensorLandscape" />
 
         <activity
+            android:name=".ui.activity.AudioActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:parentActivityName=".ui.activity.HomeActivity"
+            android:screenOrientation="sensorLandscape" />
+
+        <activity
             android:name=".ui.activity.PushActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="sensorLandscape" />

@@ -421,6 +421,7 @@
     <string name="detail_theme_light">Light</string>
     <string name="detail_quality">Quality</string>
     <string name="setting_tmdb">TMDB config</string>
+    <string name="setting_audio_source">Audio source config</string>
     <string name="setting_detail_open_mode">Detail open mode</string>
     <string name="setting_detail_open_fusion">Immersive fusion</string>
     <string name="setting_detail_open_enhanced">Enhanced detail</string>
@@ -438,6 +439,9 @@
     <string name="dialog_tmdb_site_exclude_prefix">Exclude:</string>
     <string name="dialog_tmdb_site_manage">Select enabled sources</string>
     <string name="dialog_tmdb_site_clear">Default all</string>
+    <string name="dialog_audio_site_rules">Audio source rules: enabled sources or keywords, separated by ;. Default: [音];[听]</string>
+    <string name="dialog_audio_site_manage">Select audio sources</string>
+    <string name="dialog_audio_site_default">Default [音]/[听]</string>
     <string name="dialog_tmdb_test">Test connection</string>
     <string name="dialog_tmdb_testing">Testing TMDB...</string>
     <string name="dialog_tmdb_test_success">TMDB connection succeeded</string>

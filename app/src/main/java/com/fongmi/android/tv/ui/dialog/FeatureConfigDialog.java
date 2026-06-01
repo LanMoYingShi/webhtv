@@ -10,6 +10,7 @@ import androidx.fragment.app.FragmentActivity;
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.config.VodConfig;
+import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.databinding.DialogFeatureConfigBinding;
@@ -28,6 +29,7 @@ import java.util.List;
 public class FeatureConfigDialog {
 
     public static final int TMDB = 1;
+    public static final int AUDIO = 2;
     private static final String DEFAULT_API_HOST = "https://api.tmdb.org";
     private static final String DEFAULT_IMAGE_HOST = "https://image.tmdb.org";
 
@@ -35,6 +37,7 @@ public class FeatureConfigDialog {
     private final DialogFeatureConfigBinding binding;
     private AlertDialog dialog;
     private Runnable onDismiss;
+    private int type = TMDB;
 
     public static FeatureConfigDialog create(FragmentActivity activity) {
         return new FeatureConfigDialog(activity);
@@ -46,6 +49,7 @@ public class FeatureConfigDialog {
     }
 
     public FeatureConfigDialog type(int type) {
+        this.type = type;
         return this;
     }
 
@@ -61,7 +65,7 @@ public class FeatureConfigDialog {
 
     private void initDialog() {
         dialog = new MaterialAlertDialogBuilder(activity)
-                .setTitle(R.string.setting_tmdb)
+                .setTitle(type == AUDIO ? R.string.setting_audio_source : R.string.setting_tmdb)
                 .setView(binding.getRoot())
                 .setPositiveButton(R.string.dialog_positive, this::onPositive)
                 .setNegativeButton(R.string.dialog_negative, this::onNegative)
@@ -74,6 +78,10 @@ public class FeatureConfigDialog {
     }
 
     private void initView() {
+        if (type == AUDIO) {
+            initAudioView();
+            return;
+        }
         TmdbConfig config = TmdbConfig.objectFrom(Setting.getTmdbConfig());
         binding.baseLayout.setHint(activity.getString(R.string.dialog_tmdb_token));
         binding.extra1Layout.setHint(activity.getString(R.string.dialog_tmdb_lang));
@@ -89,7 +97,30 @@ public class FeatureConfigDialog {
         binding.test.setOnClickListener(v -> testTmdbConfig());
     }
 
+    private void initAudioView() {
+        AudioConfig config = AudioConfig.objectFrom(Setting.getAudioConfig());
+        binding.baseLayout.setVisibility(android.view.View.GONE);
+        binding.extra1Layout.setVisibility(android.view.View.GONE);
+        binding.extra2Layout.setVisibility(android.view.View.GONE);
+        binding.extra3Layout.setVisibility(android.view.View.GONE);
+        binding.test.setVisibility(android.view.View.GONE);
+        binding.extra4Layout.setHint(activity.getString(R.string.dialog_audio_site_rules));
+        binding.extra4.setText(activity.getString(R.string.dialog_tmdb_site_rules_value, config.getDisplayRules(), ""));
+        binding.siteManage.setText(R.string.dialog_audio_site_manage);
+        binding.siteManage.setOnClickListener(v -> showAudioSiteManageDialog());
+    }
+
     private void onPositive(DialogInterface dialog, int which) {
+        if (type == AUDIO) {
+            SiteRules rules = parseSiteRules();
+            String json = "{"
+                    + "\"configured\":true,"
+                    + "\"enabledSites\":" + arrayJson(rules.enabled())
+                    + "}";
+            Setting.putAudioConfig(AudioConfig.objectFrom(json).toJson());
+            dialog.dismiss();
+            return;
+        }
         SiteRules rules = parseSiteRules();
         String json = "{"
                 + "\"accessToken\":\"" + escape(binding.base.getText()) + "\","
@@ -267,6 +298,10 @@ public class FeatureConfigDialog {
     }
 
     private void showSiteManageDialog() {
+        if (type == AUDIO) {
+            showAudioSiteManageDialog();
+            return;
+        }
         List<Site> sites = VodConfig.get().getSites().stream().filter(site -> site != null && !site.isEmpty()).toList();
         if (sites.isEmpty()) return;
         SiteRules rules = parseSiteRules();
@@ -288,6 +323,30 @@ public class FeatureConfigDialog {
                 })
                 .setNegativeButton(R.string.dialog_negative, null)
                 .setNeutralButton(R.string.dialog_tmdb_site_clear, (dialog, which) -> setSiteRules(List.of(), rules.excluded()))
+                .show();
+    }
+
+    private void showAudioSiteManageDialog() {
+        List<Site> sites = VodConfig.get().getSites().stream().filter(site -> site != null && !site.isEmpty()).toList();
+        if (sites.isEmpty()) return;
+        AudioConfig config = AudioConfig.objectFrom(Setting.getAudioConfig());
+        String[] labels = new String[sites.size()];
+        boolean[] checked = new boolean[sites.size()];
+        for (int i = 0; i < sites.size(); i++) {
+            Site site = sites.get(i);
+            labels[i] = TextUtils.isEmpty(site.getName()) ? site.getKey() : site.getName() + "  " + site.getKey();
+            checked[i] = config.isSiteEnabled(site.getKey(), site.getName());
+        }
+        new MaterialAlertDialogBuilder(activity)
+                .setTitle(R.string.dialog_audio_site_manage)
+                .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setPositiveButton(R.string.dialog_positive, (dialog, which) -> {
+                    List<String> enabled = new ArrayList<>();
+                    for (int i = 0; i < sites.size(); i++) if (checked[i]) enabled.add(sites.get(i).getKey());
+                    binding.extra4.setText(activity.getString(R.string.dialog_tmdb_site_rules_value, join(enabled), ""));
+                })
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setNeutralButton(R.string.dialog_audio_site_default, (dialog, which) -> binding.extra4.setText(activity.getString(R.string.dialog_tmdb_site_rules_value, AudioConfig.defaultRulesText(), "")))
                 .show();
     }
 

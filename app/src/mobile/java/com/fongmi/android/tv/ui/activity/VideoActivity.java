@@ -91,6 +91,7 @@ import com.fongmi.android.tv.ui.dialog.TitleDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
 import com.fongmi.android.tv.utils.Clock;
 import com.fongmi.android.tv.utils.FileChooser;
+import com.fongmi.android.tv.utils.AudioUtil;
 import com.fongmi.android.tv.utils.Formatters;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.Notify;
@@ -163,7 +164,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private static boolean canOpenEnhancedDetail(String key) {
-        return !TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key);
+        return !TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && !AudioUtil.isAudioSiteEnabled(key);
     }
 
     private static boolean shouldOpenFusionDetail(String key) {
@@ -179,10 +180,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     public static void startDirect(Activity activity, String key, String id, String name, String pic, String mark) {
+        if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         startInternal(activity, key, id, name, pic, mark, false, true);
     }
 
     public static void start(Activity activity, String url) {
+        if (AudioUtil.isAudioUrl(url)) {
+            AudioActivity.start(activity, url, url, "", null);
+            return;
+        }
         start(activity, SiteApi.PUSH, url, url);
     }
 
@@ -203,6 +209,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private static void startInternal(Activity activity, String key, String id, String name, String pic, String mark, boolean collect, boolean skipIntermediate) {
+        if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         if (!skipIntermediate && shouldOpenIntermediateDetail(key)) {
             TmdbDetailActivity.start(activity, key, id, name, pic, mark);
             return;
@@ -634,6 +641,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
         if (result.hasDesc()) setText(mBinding.content, 0, result.getDesc());
         mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
+        if (AudioActivity.startIfAudio(this, getHistoryKey(), getKey(), getFlag().getFlag(), mHistory.getVodName(), mHistory.getVodPic(), mEpisodeAdapter.getItems(), mEpisodeAdapter.getPosition(), result, getSite().getTimeout())) {
+            finish();
+            return;
+        }
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
         if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), new AutoDanmakuConsumer(result));
     }
@@ -676,6 +687,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     public void onItemClick(Result result) {
+        if (AudioActivity.startIfAudio(this, getHistoryKey(), getKey(), getFlag().getFlag(), mHistory.getVodName(), mHistory.getVodPic(), mEpisodeAdapter.getItems(), mEpisodeAdapter.getPosition(), result, getSite().getTimeout())) {
+            finish();
+            return;
+        }
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
     }
 
