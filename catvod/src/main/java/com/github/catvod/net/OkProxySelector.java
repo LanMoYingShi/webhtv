@@ -59,7 +59,7 @@ public class OkProxySelector extends ProxySelector {
         String host = uri.getHost();
         if (proxy.isEmpty()) return fallback(uri, "no-rule");
         if (host == null) return fallback(uri, "no-host");
-        if ("127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host)) return fallback(uri, "local-target");
+        if ("127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host)) return fallback(uri);
         for (Proxy item : proxy) {
             for (String rule : item.getHosts()) {
                 if (!matches(host, rule)) continue;
@@ -73,8 +73,16 @@ public class OkProxySelector extends ProxySelector {
 
     private List<java.net.Proxy> fallback(URI uri, String reason) {
         List<java.net.Proxy> selected = fallback(uri);
+        if (isLocalDebugNoise(uri)) return selected;
         SpiderDebug.log("proxy", "select fallback reason=%s uri=%s proxy=%s", reason, uri, selected);
         return selected;
+    }
+
+    private boolean isLocalDebugNoise(URI uri) {
+        String host = uri.getHost();
+        if (!"127.0.0.1".equals(host) && !"localhost".equalsIgnoreCase(host)) return false;
+        String path = uri.getPath();
+        return path != null && path.startsWith("/debug/");
     }
 
     private boolean matches(String host, String rule) {

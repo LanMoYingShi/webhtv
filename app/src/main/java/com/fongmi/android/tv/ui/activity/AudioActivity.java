@@ -132,6 +132,7 @@ public class AudioActivity extends PlaybackActivity {
     }
 
     public static boolean startSite(Activity activity, String key, String id, String name, String pic, String mark) {
+        if (SiteApi.PUSH.equals(key)) return false;
         if (!AudioUtil.isAudioSiteEnabled(key)) return false;
         Notify.show("正在加载音频");
         Task.execute(() -> {
@@ -171,7 +172,9 @@ public class AudioActivity extends PlaybackActivity {
 
     public static boolean startIfAudio(Activity activity, String playbackKey, String siteKey, String flag, String vodName, String vodPic, List<Episode> episodes, int index, Result result, long timeout) {
         if (!AudioUtil.isAudioSiteEnabled(siteKey)) return false;
-        if (!AudioUtil.isAudio(result) && (result == null || result.getUrl().isEmpty())) return false;
+        boolean audio = AudioUtil.isAudio(result);
+        if (SiteApi.PUSH.equals(siteKey) && !audio) return false;
+        if (!audio && (result == null || result.getUrl().isEmpty())) return false;
         String subtitle = episodes == null || episodes.isEmpty() || index < 0 || index >= episodes.size() ? "" : episodes.get(index).getDisplayName();
         start(activity, playbackKey, siteKey, flag, vodName, subtitle, result.hasArtwork() ? result.getArtwork() : vodPic, episodes, index, result, timeout, result.getHeader());
         return true;

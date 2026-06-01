@@ -23,6 +23,7 @@ public class DebugLogStore {
     private static final ThreadLocal<SimpleDateFormat> FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US));
     private static final String FILE_NAME = "webhtv-debug-log.txt";
     private static final String PREF_ENABLED = "debug_log";
+    private static final int MAX_LINES = 2000;
     private static volatile boolean enabled;
 
     public static boolean isEnabled() {
@@ -47,6 +48,7 @@ public class DebugLogStore {
         String line = FORMAT.get().format(new Date()) + " [" + Thread.currentThread().getName() + "] " + safe(tag) + ": " + msg;
         synchronized (LOCK) {
             LINES.addLast(line);
+            while (LINES.size() > MAX_LINES) LINES.removeFirst();
             write(line);
         }
     }

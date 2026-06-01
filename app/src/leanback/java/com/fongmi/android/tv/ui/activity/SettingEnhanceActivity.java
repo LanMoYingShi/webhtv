@@ -1,9 +1,7 @@
 package com.fongmi.android.tv.ui.activity;
 
 import android.app.Activity;
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 
@@ -13,15 +11,14 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.databinding.ActivitySettingEnhanceBinding;
-import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.setting.ProxySetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.base.BaseActivity;
+import com.fongmi.android.tv.ui.dialog.DebugLogDialog;
 import com.fongmi.android.tv.ui.dialog.FeatureConfigDialog;
 import com.fongmi.android.tv.ui.dialog.OneKeySyncDialog;
 import com.fongmi.android.tv.ui.dialog.ShellProxyDialog;
 import com.fongmi.android.tv.utils.Notify;
-import com.github.catvod.crawler.SpiderDebug;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class SettingEnhanceActivity extends BaseActivity {
@@ -129,17 +126,9 @@ public class SettingEnhanceActivity extends BaseActivity {
     }
 
     private void setDebugLog(View view) {
-        Setting.putDebugLog(!Setting.isDebugLog());
+        if (!Setting.isDebugLog()) Setting.putDebugLog(true);
         mBinding.debugLogText.setText(getSwitch(Setting.isDebugLog()));
-        if (!Setting.isDebugLog()) return;
-        Server.get().start();
-        String url = Server.get().getAddress("/debug/logs");
-        SpiderDebug.log("debug", "open logs url=%s lan=%s", url, Server.get().getAddress(false) + "/debug/logs");
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-        } catch (ActivityNotFoundException e) {
-            Notify.show(url);
-        }
+        DebugLogDialog.show(this, this::setText);
     }
 
     private void setShellProxy(View view) {
@@ -153,5 +142,11 @@ public class SettingEnhanceActivity extends BaseActivity {
 
     private void setOneKeySync(View view) {
         OneKeySyncDialog.create().show(this);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        setText();
     }
 }

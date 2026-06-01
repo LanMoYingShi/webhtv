@@ -13,6 +13,7 @@ import androidx.fragment.app.FragmentActivity;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.server.Server;
+import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.utils.Notify;
 import com.github.catvod.crawler.SpiderDebug;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -23,10 +24,18 @@ public final class DebugLogDialog {
     }
 
     public static void show(Fragment fragment) {
-        show(fragment.requireActivity());
+        show(fragment.requireActivity(), null);
+    }
+
+    public static void show(Fragment fragment, Runnable onChanged) {
+        show(fragment.requireActivity(), onChanged);
     }
 
     public static void show(FragmentActivity activity) {
+        show(activity, null);
+    }
+
+    public static void show(FragmentActivity activity, Runnable onChanged) {
         Server.get().start();
         String localUrl = Server.get().getAddress("/debug/logs");
         String lanUrl = Server.get().getAddress(false) + "/debug/logs";
@@ -35,13 +44,21 @@ public final class DebugLogDialog {
         AlertDialog dialog = new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.setting_debug_log)
                 .setMessage(message)
-                .setNegativeButton(R.string.dialog_negative, null)
+                .setNegativeButton(R.string.debug_log_disable, null)
                 .setNeutralButton(R.string.debug_log_copy_url, null)
                 .setPositiveButton(R.string.debug_log_open_browser, null)
                 .create();
         dialog.setOnShowListener(d -> {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> open(activity, localUrl));
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> copy(activity, lanUrl));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
+                Setting.putDebugLog(false);
+                if (onChanged != null) onChanged.run();
+                dialog.dismiss();
+            });
+        });
+        dialog.setOnDismissListener(d -> {
+            if (onChanged != null) onChanged.run();
         });
         dialog.show();
     }

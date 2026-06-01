@@ -284,6 +284,11 @@
     <string name="debug_log_copy_url">複製地址</string>
     <string name="debug_log_no_browser">未找到可打開網頁的應用，請使用局域網地址訪問</string>
     <string name="debug_log_url_copied">調試日誌地址已複製</string>
+    <string name="debug_log_enable">開啟</string>
+    <string name="debug_log_disable">關閉</string>
+    <string name="debug_log_refresh">刷新</string>
+    <string name="debug_log_clear">清空</string>
+    <string name="debug_log_state">%1$s · %2$d 行</string>
 
     <!-- UNIT -->
     <string name="all">全部</string>
