@@ -5,7 +5,7 @@
     android:id="@+id/progressLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#6EAFA2">
+    android:background="@color/transparent">
 
     <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/pageBackdrop"

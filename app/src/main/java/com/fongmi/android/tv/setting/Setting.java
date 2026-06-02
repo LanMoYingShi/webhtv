@@ -14,6 +14,7 @@ import android.webkit.WebView;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.bean.AudioConfig;
+import com.fongmi.android.tv.bean.ShortDramaConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.bean.TmdbMatchCache;
 import com.github.catvod.crawler.DebugLogStore;
@@ -245,6 +246,18 @@ public class Setting {
         return AudioConfig.objectFrom(getAudioConfig()).isSiteEnabled(key, name);
     }
 
+    public static String getShortDramaConfig() {
+        return Prefers.getString("short_drama_config");
+    }
+
+    public static void putShortDramaConfig(String value) {
+        Prefers.put("short_drama_config", value);
+    }
+
+    public static boolean isShortDramaSiteEnabled(String key, String name) {
+        return ShortDramaConfig.objectFrom(getShortDramaConfig()).isSiteEnabled(key, name);
+    }
+
     public static TmdbMatchCache getTmdbMatchCache() {
         return TmdbMatchCache.objectFrom(Prefers.getString("tmdb_match_cache"));
     }
@@ -255,6 +268,10 @@ public class Setting {
 
     public static boolean isTmdbReady() {
         return TmdbConfig.objectFrom(getTmdbConfig()).isReady();
+    }
+
+    public static boolean isTmdbSiteEnabled(String key, String name) {
+        return TmdbConfig.objectFrom(getTmdbConfig()).isSiteEnabled(key, name);
     }
 
     public static int getDetailOpenMode() {

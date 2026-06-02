@@ -11,6 +11,7 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.AudioConfig;
+import com.fongmi.android.tv.bean.ShortDramaConfig;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.databinding.DialogFeatureConfigBinding;
@@ -30,6 +31,7 @@ public class FeatureConfigDialog {
 
     public static final int TMDB = 1;
     public static final int AUDIO = 2;
+    public static final int SHORT_DRAMA = 3;
     private static final String DEFAULT_API_HOST = "https://api.tmdb.org";
     private static final String DEFAULT_IMAGE_HOST = "https://image.tmdb.org";
 
@@ -65,7 +67,7 @@ public class FeatureConfigDialog {
 
     private void initDialog() {
         dialog = new MaterialAlertDialogBuilder(activity)
-                .setTitle(type == AUDIO ? R.string.setting_audio_source : R.string.setting_tmdb)
+                .setTitle(getTitle())
                 .setView(binding.getRoot())
                 .setPositiveButton(R.string.dialog_positive, this::onPositive)
                 .setNegativeButton(R.string.dialog_negative, this::onNegative)
@@ -77,9 +79,19 @@ public class FeatureConfigDialog {
         if (dialog.getWindow() != null) dialog.getWindow().setDimAmount(0);
     }
 
+    private int getTitle() {
+        if (type == AUDIO) return R.string.setting_audio_source;
+        if (type == SHORT_DRAMA) return R.string.setting_short_drama_source;
+        return R.string.setting_tmdb;
+    }
+
     private void initView() {
         if (type == AUDIO) {
             initAudioView();
+            return;
+        }
+        if (type == SHORT_DRAMA) {
+            initShortDramaView();
             return;
         }
         TmdbConfig config = TmdbConfig.objectFrom(Setting.getTmdbConfig());
@@ -110,6 +122,19 @@ public class FeatureConfigDialog {
         binding.siteManage.setOnClickListener(v -> showAudioSiteManageDialog());
     }
 
+    private void initShortDramaView() {
+        ShortDramaConfig config = ShortDramaConfig.objectFrom(Setting.getShortDramaConfig());
+        binding.baseLayout.setVisibility(android.view.View.GONE);
+        binding.extra1Layout.setVisibility(android.view.View.GONE);
+        binding.extra2Layout.setVisibility(android.view.View.GONE);
+        binding.extra3Layout.setVisibility(android.view.View.GONE);
+        binding.test.setVisibility(android.view.View.GONE);
+        binding.extra4Layout.setHint(activity.getString(R.string.dialog_short_drama_site_rules));
+        binding.extra4.setText(activity.getString(R.string.dialog_tmdb_site_rules_value, config.getDisplayRules(), ""));
+        binding.siteManage.setText(R.string.dialog_short_drama_site_manage);
+        binding.siteManage.setOnClickListener(v -> showShortDramaSiteManageDialog());
+    }
+
     private void onPositive(DialogInterface dialog, int which) {
         if (type == AUDIO) {
             SiteRules rules = parseSiteRules();
@@ -118,6 +143,16 @@ public class FeatureConfigDialog {
                     + "\"enabledSites\":" + arrayJson(rules.enabled())
                     + "}";
             Setting.putAudioConfig(AudioConfig.objectFrom(json).toJson());
+            dialog.dismiss();
+            return;
+        }
+        if (type == SHORT_DRAMA) {
+            SiteRules rules = parseSiteRules();
+            String json = "{"
+                    + "\"configured\":true,"
+                    + "\"enabledSites\":" + arrayJson(rules.enabled())
+                    + "}";
+            Setting.putShortDramaConfig(ShortDramaConfig.objectFrom(json).toJson());
             dialog.dismiss();
             return;
         }
@@ -302,6 +337,10 @@ public class FeatureConfigDialog {
             showAudioSiteManageDialog();
             return;
         }
+        if (type == SHORT_DRAMA) {
+            showShortDramaSiteManageDialog();
+            return;
+        }
         List<Site> sites = VodConfig.get().getSites().stream().filter(site -> site != null && !site.isEmpty()).toList();
         if (sites.isEmpty()) return;
         SiteRules rules = parseSiteRules();
@@ -310,11 +349,20 @@ public class FeatureConfigDialog {
         for (int i = 0; i < sites.size(); i++) {
             Site site = sites.get(i);
             labels[i] = TextUtils.isEmpty(site.getName()) ? site.getKey() : site.getName() + "  " + site.getKey();
-            checked[i] = rules.enabled().isEmpty() || containsRule(rules.enabled(), site);
+            checked[i] = !containsRule(rules.excluded(), site) && (rules.enabled().isEmpty() || containsRule(rules.enabled(), site));
         }
         new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.dialog_tmdb_site_manage)
-                .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> {
+                    Site site = sites.get(which);
+                    if (isChecked && containsRule(rules.excluded(), site)) {
+                        checked[which] = false;
+                        ((AlertDialog) dialog).getListView().setItemChecked(which, false);
+                        Notify.show(activity.getString(R.string.dialog_tmdb_site_excluded_hint, labels[which]));
+                    } else {
+                        checked[which] = isChecked;
+                    }
+                })
                 .setPositiveButton(R.string.dialog_positive, (dialog, which) -> {
                     List<String> enabled = new ArrayList<>();
                     for (int i = 0; i < sites.size(); i++) if (checked[i]) enabled.add(sites.get(i).getKey());
@@ -329,13 +377,13 @@ public class FeatureConfigDialog {
     private void showAudioSiteManageDialog() {
         List<Site> sites = VodConfig.get().getSites().stream().filter(site -> site != null && !site.isEmpty()).toList();
         if (sites.isEmpty()) return;
-        AudioConfig config = AudioConfig.objectFrom(Setting.getAudioConfig());
+        SiteRules rules = parseSiteRules();
         String[] labels = new String[sites.size()];
         boolean[] checked = new boolean[sites.size()];
         for (int i = 0; i < sites.size(); i++) {
             Site site = sites.get(i);
             labels[i] = TextUtils.isEmpty(site.getName()) ? site.getKey() : site.getName() + "  " + site.getKey();
-            checked[i] = config.isSiteEnabled(site.getKey(), site.getName());
+            checked[i] = containsRule(rules.enabled(), site);
         }
         new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.dialog_audio_site_manage)
@@ -350,10 +398,37 @@ public class FeatureConfigDialog {
                 .show();
     }
 
+    private void showShortDramaSiteManageDialog() {
+        List<Site> sites = VodConfig.get().getSites().stream().filter(site -> site != null && !site.isEmpty()).toList();
+        if (sites.isEmpty()) return;
+        SiteRules rules = parseSiteRules();
+        String[] labels = new String[sites.size()];
+        boolean[] checked = new boolean[sites.size()];
+        for (int i = 0; i < sites.size(); i++) {
+            Site site = sites.get(i);
+            labels[i] = TextUtils.isEmpty(site.getName()) ? site.getKey() : site.getName() + "  " + site.getKey();
+            checked[i] = containsRule(rules.enabled(), site);
+        }
+        new MaterialAlertDialogBuilder(activity)
+                .setTitle(R.string.dialog_short_drama_site_manage)
+                .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setPositiveButton(R.string.dialog_positive, (dialog, which) -> {
+                    List<String> enabled = new ArrayList<>();
+                    for (int i = 0; i < sites.size(); i++) if (checked[i]) enabled.add(sites.get(i).getKey());
+                    binding.extra4.setText(activity.getString(R.string.dialog_tmdb_site_rules_value, join(enabled), ""));
+                })
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setNeutralButton(R.string.dialog_short_drama_site_default, (dialog, which) -> binding.extra4.setText(activity.getString(R.string.dialog_tmdb_site_rules_value, ShortDramaConfig.defaultRulesText(), "")))
+                .show();
+    }
+
     private boolean containsRule(List<String> rules, Site site) {
+        String key = site.getKey() == null ? "" : site.getKey().toLowerCase(java.util.Locale.ROOT);
+        String name = site.getName() == null ? "" : site.getName().toLowerCase(java.util.Locale.ROOT);
         for (String rule : rules) {
             if (TextUtils.isEmpty(rule)) continue;
-            if (site.getKey().contains(rule) || site.getName().contains(rule) || rule.contains(site.getKey())) return true;
+            String text = rule.trim().toLowerCase(java.util.Locale.ROOT);
+            if (key.contains(text) || name.contains(text) || text.contains(key)) return true;
         }
         return false;
     }

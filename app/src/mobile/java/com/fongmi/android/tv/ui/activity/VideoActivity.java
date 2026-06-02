@@ -103,6 +103,7 @@ import com.fongmi.android.tv.utils.Timer;
 import com.fongmi.android.tv.utils.Traffic;
 import com.fongmi.android.tv.utils.Util;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
@@ -115,6 +116,8 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 public class VideoActivity extends PlaybackActivity implements Clock.Callback, CustomKeyDown.Listener, TrackDialog.Listener, ControlDialog.Listener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, CastDialog.Listener, InfoDialog.Listener {
+
+    private static final int SHORT_DRAMA_SCALE = 4;
 
     private ActivityVideoBinding mBinding;
     private ViewGroup.LayoutParams mFrameParams;
@@ -136,6 +139,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean autoMode;
     private boolean useParse;
     private boolean rotate;
+    private boolean keepChanged;
     private Runnable mR1;
     private Runnable mR2;
     private Runnable mR3;
@@ -164,7 +168,17 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private static boolean canOpenEnhancedDetail(String key) {
-        return !TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && !AudioUtil.isAudioSiteEnabled(key);
+        return !TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && !AudioUtil.isAudioSiteEnabled(key) && !isShortDramaSiteEnabled(key) && isTmdbSiteEnabled(key);
+    }
+
+    private static boolean isTmdbSiteEnabled(String key) {
+        Site site = VodConfig.get().getSite(key);
+        return Setting.isTmdbSiteEnabled(key, site == null ? "" : site.getName());
+    }
+
+    private static boolean isShortDramaSiteEnabled(String key) {
+        Site site = VodConfig.get().getSite(key);
+        return Setting.isShortDramaSiteEnabled(key, site == null ? "" : site.getName());
     }
 
     private static boolean shouldOpenFusionDetail(String key) {
@@ -376,6 +390,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         applyDisplaySettings();
         showProgress();
         setAnimator();
+        if (isShortDramaSource()) enterShortDramaFullscreen();
     }
 
     @Override
@@ -392,6 +407,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.back.setOnClickListener(view -> onBack());
         mBinding.control.cast.setOnClickListener(view -> onCast());
         mBinding.control.info.setOnClickListener(view -> onInfo());
+        mBinding.control.intro.setOnClickListener(view -> showShortDramaInfo());
         mBinding.control.keep.setOnClickListener(view -> onKeep());
         mBinding.control.play.setOnClickListener(view -> checkPlay());
         mBinding.control.next.setOnClickListener(view -> checkNext());
@@ -487,6 +503,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mHistory.setScale(scale);
         mBinding.exo.setResizeMode(scale);
         mBinding.control.action.scale.setText(ResUtil.getStringArray(R.array.select_scale)[scale]);
+    }
+
+    private void setPreviewScale(int scale) {
+        String[] array = ResUtil.getStringArray(R.array.select_scale);
+        if (scale < 0 || scale >= array.length) return;
+        mBinding.exo.setResizeMode(scale);
+        mBinding.control.action.scale.setText(array[scale]);
     }
 
     private void setViewModel() {
@@ -781,7 +804,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void onBack() {
-        if (isFullscreen()) exitFullscreen();
+        if (isFullscreen() && isShortDramaSource()) finishShortDrama();
+        else if (isFullscreen()) exitFullscreen();
         else finish();
     }
 
@@ -807,7 +831,33 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         Notify.show(keep != null ? R.string.keep_del : R.string.keep_add);
         if (keep != null) keep.delete();
         else createKeep();
+        keepChanged = true;
         checkKeepImg();
+    }
+
+    private void showShortDramaInfo() {
+        String title = mBinding.name.getText().toString();
+        String episode = getEpisode().getName();
+        StringBuilder msg = new StringBuilder();
+        appendInfo(msg, getString(R.string.detail_site, getSite().getName()));
+        appendInfo(msg, getString(R.string.detail_episode) + ": " + (TextUtils.isEmpty(episode) ? "-" : episode));
+        if (!TextUtils.isEmpty(mBinding.remark.getText())) appendInfo(msg, mBinding.remark.getText().toString());
+        if (!TextUtils.isEmpty(mBinding.other.getText())) appendInfo(msg, mBinding.other.getText().toString());
+        if (!TextUtils.isEmpty(mBinding.director.getText())) appendInfo(msg, mBinding.director.getText().toString());
+        if (!TextUtils.isEmpty(mBinding.actor.getText())) appendInfo(msg, mBinding.actor.getText().toString());
+        if (!TextUtils.isEmpty(mBinding.content.getText())) appendInfo(msg, getString(R.string.detail_content, mBinding.content.getText()));
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(TextUtils.isEmpty(title) ? getString(R.string.setting_short_drama_source) : title)
+                .setMessage(msg.length() == 0 ? "-" : msg.toString())
+                .setPositiveButton(R.string.dialog_positive, null)
+                .show();
+        hideControl();
+    }
+
+    private void appendInfo(StringBuilder builder, String text) {
+        if (TextUtils.isEmpty(text)) return;
+        if (builder.length() > 0) builder.append("\n\n");
+        builder.append(text);
     }
 
     private void checkPlay() {
@@ -1018,6 +1068,32 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         hideControl();
     }
 
+    private void applyShortDramaMode() {
+        if (!isShortDramaSource()) return;
+        enterShortDramaFullscreen();
+        setPreviewScale(SHORT_DRAMA_SCALE);
+        mBinding.exo.postDelayed(() -> setPreviewScale(SHORT_DRAMA_SCALE), 250);
+        hideControl();
+    }
+
+    private void enterShortDramaFullscreen() {
+        if (!isFullscreen()) {
+            setFullscreen(true);
+            mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
+            setRequestedOrientation(isPort() ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
+            setControlTitleVisibility();
+            setControlSizeVisibility();
+            mKeyDown.resetScale();
+        }
+        setPreviewScale(SHORT_DRAMA_SCALE);
+        hideControl();
+    }
+
+    private void finishShortDrama() {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
+        finish();
+    }
+
     private void exitFullscreen() {
         if (!isFullscreen()) return;
         setFullscreen(false);
@@ -1091,16 +1167,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void showControl() {
         if (service() == null || isInPictureInPictureMode()) return;
+        boolean shortDrama = isShortDramaSource();
         mBinding.control.danmaku.setVisibility(isLock() || !hasDanmakuControl() ? View.GONE : View.VISIBLE);
         mBinding.control.setting.setVisibility(mHistory == null || isFullscreen() ? View.GONE : View.VISIBLE);
-        mBinding.control.right.rotate.setVisibility(isFullscreen() && !isLock() ? View.VISIBLE : View.GONE);
-        mBinding.control.keep.setVisibility(mHistory == null || isFullscreen() ? View.GONE : View.VISIBLE);
+        mBinding.control.right.rotate.setVisibility(isFullscreen() && !isLock() && !shortDrama ? View.VISIBLE : View.GONE);
+        mBinding.control.keep.setVisibility(mHistory == null || (isFullscreen() && !shortDrama) ? View.GONE : View.VISIBLE);
         mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() ? View.VISIBLE : View.GONE);
-        mBinding.control.action.getRoot().setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);
+        mBinding.control.action.getRoot().setVisibility(isFullscreen() && !shortDrama ? View.VISIBLE : View.GONE);
         mBinding.control.right.lock.setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);
         mBinding.control.info.setVisibility(player().isEmpty() ? View.GONE : View.VISIBLE);
+        mBinding.control.intro.setVisibility(shortDrama && !player().isEmpty() ? View.VISIBLE : View.GONE);
         mBinding.control.cast.setVisibility(player().isEmpty() ? View.GONE : View.VISIBLE);
-        mBinding.control.fullscreen.setVisibility(isLock() || player().isEmpty() ? View.GONE : View.VISIBLE);
+        mBinding.control.fullscreen.setVisibility(isLock() || player().isEmpty() || shortDrama ? View.GONE : View.VISIBLE);
         mBinding.control.center.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
@@ -1139,11 +1217,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setControlTitleVisibility() {
-        mBinding.control.title.setVisibility(isFullscreen() && PlayerSetting.isDisplayTitle() ? View.VISIBLE : View.INVISIBLE);
+        mBinding.control.title.setVisibility(isFullscreen() && (PlayerSetting.isDisplayTitle() || isShortDramaSource()) ? View.VISIBLE : View.INVISIBLE);
     }
 
     private void setControlSizeVisibility() {
-        mControlController.updateSize(mBinding.control.size, isFullscreen());
+        if (isShortDramaSource()) mBinding.control.size.setVisibility(View.GONE);
+        else mControlController.updateSize(mBinding.control.size, isFullscreen());
     }
 
     private void updateDisplayStatus(long time) {
@@ -1400,6 +1479,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 hideProgress();
                 checkControl();
                 player().reset();
+                applyShortDramaMode();
                 break;
             case Player.STATE_ENDED:
                 checkEnded(true);
@@ -1467,6 +1547,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void checkOrientation() {
+        if (isShortDramaSource()) return;
         if (isFullscreen() && !isRotate() && player().isPortrait()) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT);
             setRotate(true);
@@ -1620,6 +1701,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private boolean isFullscreen() {
         return fullscreen;
+    }
+
+    private boolean isShortDramaSource() {
+        Site site = getSite();
+        return Setting.isShortDramaSiteEnabled(site == null ? getKey() : site.getKey(), site == null ? "" : site.getName());
     }
 
     private void setFullscreen(boolean fullscreen) {
@@ -1812,6 +1898,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        if (isShortDramaSource()) {
+            if (isFullscreen()) Util.hideSystemUI(this);
+            return;
+        }
         if (isAutoRotate() && isPort() && newConfig.orientation == Configuration.ORIENTATION_PORTRAIT && !isRotate() && !isLock()) exitFullscreen();
         if (isAutoRotate() && isPort() && newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) enterFullscreen();
         if (isFullscreen()) Util.hideSystemUI(this);
@@ -1842,6 +1932,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     protected void onBackInvoked() {
         if (isVisible(mBinding.control.getRoot())) {
             hideControl();
+        } else if (isFullscreen() && isShortDramaSource()) {
+            finishShortDrama();
         } else if (isFullscreen() && !isLock()) {
             exitFullscreen();
         } else if (!isLock()) {
@@ -1857,7 +1949,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         saveHistory(true);
         Timer.get().reset();
         DanmakuApi.cancel();
-        RefreshEvent.keep();
+        if (keepChanged) RefreshEvent.keep();
         App.removeCallbacks(mR1, mR2, mR3, mR4);
         mViewModel.getResult().removeObserver(mObserveDetail);
         mViewModel.getPlayer().removeObserver(mObservePlayer);

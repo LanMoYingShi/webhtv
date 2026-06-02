@@ -48,6 +48,22 @@ public class PlayerSetting {
         Prefers.put("background", background);
     }
 
+    public static boolean isMusicNotification() {
+        return Prefers.getBoolean("audio_music_notification", true);
+    }
+
+    public static void putMusicNotification(boolean notification) {
+        Prefers.put("audio_music_notification", notification);
+    }
+
+    public static boolean isAudioBookNotification() {
+        return Prefers.getBoolean("audio_book_notification", true);
+    }
+
+    public static void putAudioBookNotification(boolean notification) {
+        Prefers.put("audio_book_notification", notification);
+    }
+
     public static boolean isBackgroundOff() {
         return getBackground() == 0;
     }

@@ -35,6 +35,7 @@ import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.databinding.ActivityAudioBinding;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.service.PlaybackService;
+import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
 import com.fongmi.android.tv.utils.AudioUtil;
@@ -234,7 +235,11 @@ public class AudioActivity extends PlaybackActivity {
 
     @Override
     protected boolean shouldPauseOnBackground() {
-        return false;
+        return !shouldContinueInBackground();
+    }
+
+    private boolean shouldContinueInBackground() {
+        return isNonSongAudio() ? PlayerSetting.isAudioBookNotification() : PlayerSetting.isMusicNotification();
     }
 
     @Override

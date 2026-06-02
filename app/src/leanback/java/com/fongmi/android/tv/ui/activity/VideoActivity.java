@@ -97,6 +97,8 @@ import java.util.function.Consumer;
 
 public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.Listener, TrackDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, Clock.Callback {
 
+    private static final int SHORT_DRAMA_SCALE = 4;
+
     private ActivityVideoBinding mBinding;
     private ViewGroup.LayoutParams mFrameParams;
     private Observer<Object> mObserveDetail;
@@ -145,7 +147,17 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private static boolean canOpenEnhancedDetail(String key, boolean cast) {
-        return !cast && !TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && !AudioUtil.isAudioSiteEnabled(key);
+        return !cast && !TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && !AudioUtil.isAudioSiteEnabled(key) && !isShortDramaSiteEnabled(key) && isTmdbSiteEnabled(key);
+    }
+
+    private static boolean isTmdbSiteEnabled(String key) {
+        Site site = VodConfig.get().getSite(key);
+        return Setting.isTmdbSiteEnabled(key, site == null ? "" : site.getName());
+    }
+
+    private static boolean isShortDramaSiteEnabled(String key) {
+        Site site = VodConfig.get().getSite(key);
+        return Setting.isShortDramaSiteEnabled(key, site == null ? "" : site.getName());
     }
 
     private static boolean shouldOpenFusionDetail(String key, boolean cast) {
@@ -420,6 +432,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mHistory.setScale(scale);
         mBinding.exo.setResizeMode(scale);
         mBinding.control.action.scale.setText(ResUtil.getStringArray(R.array.select_scale)[scale]);
+    }
+
+    private void setPreviewScale(int scale) {
+        String[] array = ResUtil.getStringArray(R.array.select_scale);
+        if (scale < 0 || scale >= array.length) return;
+        mBinding.exo.setResizeMode(scale);
+        mBinding.control.action.scale.setText(array[scale]);
     }
 
     private void setViewModel() {
@@ -743,6 +762,14 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mFocus2 = null;
     }
 
+    private void applyShortDramaMode() {
+        Site site = getSite();
+        if (!Setting.isShortDramaSiteEnabled(site == null ? getKey() : site.getKey(), site == null ? "" : site.getName())) return;
+        if (!isFullscreen()) enterFullscreen();
+        setPreviewScale(SHORT_DRAMA_SCALE);
+        hideInfo();
+    }
+
     private void exitFullscreen() {
         mBinding.video.setForeground(ResUtil.getDrawable(R.drawable.selector_video));
         mBinding.video.setLayoutParams(mFrameParams);
@@ -1022,13 +1049,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             @Override
             public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
                 mBinding.exo.setDefaultArtwork(resource);
-                mBinding.pageBackdrop.setImageDrawable(resource);
             }
 
             @Override
             public void onLoadFailed(@Nullable Drawable errorDrawable) {
                 mBinding.exo.setDefaultArtwork(errorDrawable);
-                mBinding.pageBackdrop.setImageDrawable(errorDrawable);
             }
         });
     }
@@ -1221,6 +1246,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             case Player.STATE_READY:
                 hideProgress();
                 player().reset();
+                applyShortDramaMode();
                 break;
             case Player.STATE_ENDED:
                 checkEnded(true);

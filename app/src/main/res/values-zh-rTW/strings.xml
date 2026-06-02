@@ -229,6 +229,9 @@
     <string name="player_speed">長按倍速</string>
     <string name="player_ua">User-Agent</string>
 
+    <string name="player_music_notification">音樂背景通知</string>
+    <string name="player_audio_book_notification">有聲書背景通知</string>
+
     <!-- Danmaku -->
     <string name="danmaku_load">彈幕載入</string>
     <string name="danmaku_api">搜尋接口</string>
@@ -449,5 +452,11 @@
     <string name="dialog_tmdb_test_result">API：%1$s\n驗證：%2$s\n語言：%3$s\n圖片：%4$s\n尺寸：%5$s</string>
     <string name="dialog_tmdb_auth_token">Access Token</string>
     <string name="dialog_tmdb_auth_key">API Key</string>
+
+    <string name="setting_short_drama_source">短劇源設定</string>
+    <string name="dialog_short_drama_site_rules">短劇源規則：關聯站源或關鍵字，用 ; 分隔。預設：[短];短劇</string>
+    <string name="dialog_short_drama_site_manage">選擇短劇源</string>
+    <string name="dialog_short_drama_site_default">預設 [短]/短劇</string>
+    <string name="dialog_tmdb_site_excluded_hint">%1$s 命中 TMDB 排除規則，不能啟用。</string>
 
 </resources>

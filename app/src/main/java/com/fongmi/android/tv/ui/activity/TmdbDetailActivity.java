@@ -119,6 +119,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private static final int FOCUS_STROKE_DP = 3;
     private static final int CHIP_STROKE_DP = 1;
     private static final int PHOTO_PRELOAD_RADIUS = 2;
+    private static final int SHORT_DRAMA_SCALE = 0;
 
     private final TmdbService tmdbService = new TmdbService();
     private final List<TmdbPerson> detailCastItems = new ArrayList<>();
@@ -199,6 +200,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private static void start(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem, boolean fusion, boolean autoPlay) {
         if (!TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && AudioUtil.isAudioSiteEnabled(key)) {
+            VideoActivity.startDirect(activity, key, id, name, pic, mark);
+            return;
+        }
+        if (!TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && isShortDramaSiteEnabled(key)) {
+            VideoActivity.startDirect(activity, key, id, name, pic, mark);
+            return;
+        }
+        if (!TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && !isTmdbSiteEnabled(key)) {
             VideoActivity.startDirect(activity, key, id, name, pic, mark);
             return;
         }
@@ -2094,6 +2103,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerScale.setText(scaleLabel());
     }
 
+    private void setInlinePreviewScale(int scale) {
+        String[] array = ResUtil.getStringArray(R.array.select_scale);
+        if (scale < 0 || scale >= array.length) return;
+        binding.exo.setResizeMode(scale);
+        binding.playerScale.setText(array[scale]);
+    }
+
     private void cycleInlineQuality() {
         if (currentInlineResult == null || !currentInlineResult.getUrl().isMulti()) return;
         saveInlineHistory();
@@ -2256,6 +2272,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setRequestedOrientation(portrait ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
     }
 
+    private void applyInlineShortDramaMode() {
+        if (!isShortDramaSource()) return;
+        if (!inlineFullscreen) enterInlineFullscreen();
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT);
+        setInlinePreviewScale(SHORT_DRAMA_SCALE);
+        hideInlineControls();
+    }
+
     private void exitInlineFullscreen() {
         if (!inlineFullscreen) return;
         boolean closeDetailPlayer = detailPlayerActive && !isFusionMode();
@@ -2398,6 +2422,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             binding.playerProgress.setVisibility(View.GONE);
             hideInlineControls();
             updateInlineButtons(player().isPlaying());
+            applyInlineShortDramaMode();
         }
     }
 
@@ -3294,6 +3319,21 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (site != null && !site.isEmpty()) return site;
         Site fallback = VodConfig.get().getSite(getKeyText());
         return fallback.isEmpty() ? null : fallback;
+    }
+
+    private static boolean isTmdbSiteEnabled(String key) {
+        Site site = VodConfig.get().getSite(key);
+        return Setting.isTmdbSiteEnabled(key, site == null ? "" : site.getName());
+    }
+
+    private static boolean isShortDramaSiteEnabled(String key) {
+        Site site = VodConfig.get().getSite(key);
+        return Setting.isShortDramaSiteEnabled(key, site == null ? "" : site.getName());
+    }
+
+    private boolean isShortDramaSource() {
+        Site site = getCurrentSite();
+        return Setting.isShortDramaSiteEnabled(site == null ? getKeyText() : site.getKey(), site == null ? "" : site.getName());
     }
 
     private String getSiteName() {

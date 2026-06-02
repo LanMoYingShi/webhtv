@@ -10,6 +10,7 @@ import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.AudioConfig;
+import com.fongmi.android.tv.bean.ShortDramaConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.databinding.FragmentSettingEnhanceBinding;
 import com.fongmi.android.tv.setting.ProxySetting;
@@ -52,6 +53,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.searchThread.setOnClickListener(this::setSearchThread);
         mBinding.tmdbConfig.setOnClickListener(this::setTmdbConfig);
         mBinding.audioConfig.setOnClickListener(this::setAudioConfig);
+        mBinding.shortDramaConfig.setOnClickListener(this::setShortDramaConfig);
         mBinding.driveCheck.setOnClickListener(this::setDriveCheck);
         mBinding.debugLog.setOnClickListener(this::setDebugLog);
         mBinding.shellProxy.setOnClickListener(this::setShellProxy);
@@ -64,6 +66,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.searchThreadText.setText(String.valueOf(Setting.getSearchThread()));
         mBinding.tmdbConfigText.setText(TmdbConfig.objectFrom(Setting.getTmdbConfig()).isReady() ? R.string.setting_configured : R.string.setting_unconfigured);
         mBinding.audioConfigText.setText(AudioConfig.objectFrom(Setting.getAudioConfig()).getDisplayRules());
+        mBinding.shortDramaConfigText.setText(ShortDramaConfig.objectFrom(Setting.getShortDramaConfig()).getDisplayRules());
         mBinding.driveCheckText.setText(getSwitch(Setting.isDriveCheck()));
         mBinding.debugLogText.setText(getSwitch(Setting.isDebugLog()));
         mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()));
@@ -118,6 +121,10 @@ public class SettingEnhanceFragment extends BaseFragment {
 
     private void setAudioConfig(View view) {
         FeatureConfigDialog.create(requireActivity()).type(FeatureConfigDialog.AUDIO).onDismiss(this::setText).show();
+    }
+
+    private void setShortDramaConfig(View view) {
+        FeatureConfigDialog.create(requireActivity()).type(FeatureConfigDialog.SHORT_DRAMA).onDismiss(this::setText).show();
     }
 
     private void setDriveCheck(View view) {

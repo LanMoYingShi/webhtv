@@ -221,6 +221,8 @@
     <string name="player_libass">libass</string>
     <string name="player_caption">Caption style</string>
     <string name="player_background">Background play</string>
+    <string name="player_music_notification">Music background notification</string>
+    <string name="player_audio_book_notification">Audiobook background notification</string>
     <string name="player_audio_decode">Audio software decode</string>
     <string name="player_video_decode">Video software decode</string>
     <string name="player_aac_track">Prefer aac track</string>
@@ -454,5 +456,11 @@
     <string name="dialog_tmdb_test_result">API: %1$s\nAuth: %2$s\nLanguage: %3$s\nImage: %4$s\nSizes: %5$s</string>
     <string name="dialog_tmdb_auth_token">Access Token</string>
     <string name="dialog_tmdb_auth_key">API Key</string>
+
+    <string name="setting_short_drama_source">Short drama source config</string>
+    <string name="dialog_short_drama_site_rules">Short drama source rules: enabled sources or keywords, separated by ;. Default: [短];短剧</string>
+    <string name="dialog_short_drama_site_manage">Select short drama sources</string>
+    <string name="dialog_short_drama_site_default">Default [短]/短剧</string>
+    <string name="dialog_tmdb_site_excluded_hint">%1$s matches TMDB exclude rules and cannot be enabled.</string>
 
 </resources>
