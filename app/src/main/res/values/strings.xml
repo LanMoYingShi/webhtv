@@ -266,6 +266,7 @@
 
     <!-- Player -->
     <string name="player">Player</string>
+    <string name="player_default">Default player</string>
     <string name="player_render">Render</string>
     <string name="player_scale">Scale</string>
     <string name="player_libass">libass</string>
@@ -373,6 +374,11 @@
     <string-array name="select_decode">
         <item>Soft</item>
         <item>Hard</item>
+    </string-array>
+
+    <string-array name="select_player">
+        <item>EXO</item>
+        <item>IJK</item>
     </string-array>
 
     <string-array name="select_render">

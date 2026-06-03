@@ -304,6 +304,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     @Override
     protected void onServiceConnected() {
         player().setDanmakuController(mBinding.exo.getDanmakuController());
+        setPlayer();
+        setDecode();
         checkId();
     }
 
@@ -429,6 +431,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void setVideoView() {
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
+        setPlayer();
+    }
+
+    private void setPlayer() {
+        mBinding.control.action.player.setText(service() == null ? ResUtil.getStringArray(R.array.select_player)[PlayerSetting.getPlayer()] : player().getPlayerText());
     }
 
     private void setDecode() {
@@ -597,6 +604,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             finish();
             return;
         }
+        player().switchPlayer(mHistory.getPlayerOrDefault());
+        updateHistoryPlayer();
+        setPlayer();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
         if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), new AutoDanmakuConsumer(result));
     }
@@ -676,6 +686,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             finish();
             return;
         }
+        player().switchPlayer(mHistory.getPlayerOrDefault());
+        updateHistoryPlayer();
+        setPlayer();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
     }
 
@@ -956,8 +969,12 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void onChoose() {
-        PlayerHelper.choose(this, player().getUrl(), player().getHeaders(), player().isVod(), player().getPosition(), mBinding.widget.title.getText());
-        setRedirect(true);
+        mClock.setCallback(null);
+        player().togglePlayer();
+        updateHistoryPlayer();
+        syncHistory();
+        setPlayer();
+        setDecode();
     }
 
     private void onDecode() {
@@ -1179,6 +1196,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void saveHistory(boolean exit) {
+        updateHistoryPlayer();
         if (mHistory != null && mHistory.canSave() && !Setting.isIncognito()) Task.execute(() -> {
             mHistory.merge().save();
             if (exit) RefreshEvent.history();
@@ -1186,7 +1204,12 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void syncHistory() {
+        updateHistoryPlayer();
         if (mHistory != null && !Setting.isIncognito()) Task.execute(() -> mHistory.save());
+    }
+
+    private void updateHistoryPlayer() {
+        if (mHistory != null && service() != null && !player().isReleased()) mHistory.setPlayer(player().getPlayerType());
     }
 
     private void updateHistory(Episode item) {
@@ -1360,6 +1383,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mHistory.setCreateTime(time);
         mHistory.setPosition(position = player().getPosition());
         mHistory.setDuration(duration = player().getDuration());
+        updateHistoryPlayer();
         if (mHistory.canSave() && mHistory.canSync()) syncHistory();
         if (mHistory.getEnding() > 0 && duration > 0 && mHistory.getEnding() + position >= duration) {
             checkEnded(false);

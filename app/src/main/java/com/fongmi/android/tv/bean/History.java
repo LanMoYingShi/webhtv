@@ -15,6 +15,7 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.db.AppDatabase;
 import com.fongmi.android.tv.impl.Diffable;
+import com.fongmi.android.tv.setting.PlayerSetting;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 
@@ -59,6 +60,8 @@ public class History implements Diffable<History> {
     private float speed;
     @SerializedName("scale")
     private int scale;
+    @SerializedName("player")
+    private int player;
     @SerializedName("cid")
     private int cid;
 
@@ -67,6 +70,7 @@ public class History implements Diffable<History> {
     public History() {
         this.speed = 1;
         this.scale = -1;
+        this.player = PlayerSetting.NONE;
         this.ending = C.TIME_UNSET;
         this.opening = C.TIME_UNSET;
         this.position = C.TIME_UNSET;
@@ -90,6 +94,7 @@ public class History implements Diffable<History> {
         item.duration = duration;
         item.speed = speed;
         item.scale = scale;
+        item.player = player;
         item.cid = cid;
         item.updateTime = updateTime;
         return item;
@@ -270,6 +275,22 @@ public class History implements Diffable<History> {
         this.scale = scale;
     }
 
+    public int getPlayer() {
+        return player;
+    }
+
+    public int getPlayerOrDefault() {
+        return PlayerSetting.resolvePlayer(player);
+    }
+
+    public boolean hasPlayer() {
+        return PlayerSetting.isPlayer(player);
+    }
+
+    public void setPlayer(int player) {
+        this.player = PlayerSetting.sanitizePlayer(player);
+    }
+
     public int getCid() {
         return cid;
     }
@@ -325,6 +346,7 @@ public class History implements Diffable<History> {
         if (getOpening() > 0) item.setOpening(getOpening());
         if (getEnding() > 0) item.setEnding(getEnding());
         if (getSpeed() != 1) item.setSpeed(getSpeed());
+        if (hasPlayer()) item.setPlayer(getPlayer());
         return this;
     }
 

@@ -463,7 +463,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerVideoTrack.setOnClickListener(this::showInlineTrack);
         binding.playerDanmakuToggle.setOnClickListener(view -> toggleInlineDanmaku());
         binding.playerDanmaku.setOnClickListener(view -> showInlineDanmaku());
-        binding.playerExternal.setOnClickListener(view -> openInlineExternal());
+        binding.playerExternal.setOnClickListener(view -> toggleInlinePlayer());
         binding.playerExternal.setOnLongClickListener(view -> inlineControlController.showPlayerInfo());
         binding.playerEpisodes.setOnClickListener(view -> showInlineEpisodes());
         binding.playerFullscreen.setOnClickListener(view -> toggleInlineFullscreen());
@@ -493,7 +493,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailControlView(R.id.keep, View.class).setOnClickListener(view -> onKeep());
         detailControlView(R.id.setting, View.class).setOnClickListener(view -> showInlineDisplay());
         detailControlView(R.id.danmaku, View.class).setOnClickListener(view -> toggleInlineDanmaku());
-        detailActionView(R.id.player, View.class).setOnClickListener(view -> openInlineExternal());
+        detailActionView(R.id.player, View.class).setOnClickListener(view -> toggleInlinePlayer());
         detailActionView(R.id.player, View.class).setOnLongClickListener(view -> inlineControlController.showPlayerInfo());
         detailActionView(R.id.decode, View.class).setOnClickListener(view -> toggleInlineDecode());
         detailActionView(R.id.speed, View.class).setOnClickListener(view -> changeInlineSpeed());
@@ -1978,6 +1978,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         updateInlineButtons(false);
         player().stop();
         player().clear();
+        player().switchPlayer(history == null ? PlayerSetting.getPlayer() : history.getPlayerOrDefault());
+        updateInlineHistoryPlayer();
+        updateInlineButtons(false);
         Site site = getCurrentSite();
         ensureInlineDanmakuController();
         startPlayer(getHistoryKey(), result, useParse, site == null ? 0 : site.getTimeout(), buildMetadata());
@@ -2081,6 +2084,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (!isInlinePlayerMode() || inlineControlController == null) return;
         binding.playerSpeed.setText(service() == null || player().isEmpty() ? getString(R.string.play_speed) : player().getSpeedText());
         binding.playerDecode.setText(service() == null ? getString(R.string.play_decode) : player().getDecodeText());
+        binding.playerExternal.setText(service() == null ? getString(R.string.play_exo) : player().getPlayerText());
         binding.playerScale.setText(scaleLabel());
         binding.playerQuality.setText(qualityLabel());
         binding.playerParse.setText(parseLabel());
@@ -2127,6 +2131,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineControlController.updateSize(size, inlineFullscreen);
         detailControlView(R.id.play, ImageView.class).setImageResource(playing ? androidx.media3.ui.R.drawable.exo_icon_pause : androidx.media3.ui.R.drawable.exo_icon_play);
         detailActionView(R.id.speed, TextView.class).setText(binding.playerSpeed.getText());
+        detailActionView(R.id.player, TextView.class).setText(binding.playerExternal.getText());
         detailActionView(R.id.decode, TextView.class).setText(binding.playerDecode.getText());
         detailActionView(R.id.scale, TextView.class).setText(binding.playerScale.getText());
         setButtonEnabled(detailControlView(R.id.prev, View.class), hasPrev);
@@ -2339,6 +2344,16 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (service() == null || player().isEmpty()) return;
         player().toggleDecode();
         binding.playerDecode.setText(player().getDecodeText());
+    }
+
+    private void toggleInlinePlayer() {
+        if (service() == null || player().isEmpty()) return;
+        player().togglePlayer();
+        updateInlineHistoryPlayer();
+        syncInlineHistory();
+        binding.playerExternal.setText(player().getPlayerText());
+        binding.playerDecode.setText(player().getDecodeText());
+        updateInlineButtons(false);
     }
 
     private void showInlineTrack(View view) {
@@ -2680,6 +2695,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             history.setCreateTime(System.currentTimeMillis());
             history.setPosition(player().getPosition());
             history.setDuration(player().getDuration());
+            updateInlineHistoryPlayer();
             if (history.canSave() && !Setting.isIncognito()) {
                 history.merge().save();
                 RefreshEvent.history();
@@ -2688,7 +2704,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void syncInlineHistory() {
+        updateInlineHistoryPlayer();
         if (history != null && !Setting.isIncognito()) Task.execute(() -> history.save());
+    }
+
+    private void updateInlineHistoryPlayer() {
+        if (history != null && service() != null && player() != null && !player().isReleased()) history.setPlayer(player().getPlayerType());
     }
 
     @Override
@@ -2697,6 +2718,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         history.setCreateTime(time);
         history.setPosition(player().getPosition());
         history.setDuration(player().getDuration());
+        updateInlineHistoryPlayer();
         if (history.canSave() && history.canSync()) syncInlineHistory();
         updateInlineDisplayPanel();
     }
@@ -2739,6 +2761,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         saved.setVodRemarks(historyEpisodeTitle(selectedEpisode));
         saved.setEpisodeUrl(selectedEpisode.getUrl());
         saved.setVodPic(playbackHistoryPic());
+        if (history != null && history.hasPlayer()) saved.setPlayer(history.getPlayer());
         saved.save();
         history = saved;
     }
