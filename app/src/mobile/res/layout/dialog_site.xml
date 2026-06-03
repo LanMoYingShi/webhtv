@@ -39,6 +39,25 @@
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
+    <HorizontalScrollView
+        android:id="@+id/groupScroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:scrollbars="none"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/groupList"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+
+    </HorizontalScrollView>
+
     <com.fongmi.android.tv.ui.custom.CustomRecyclerView
         android:id="@+id/recycler"
         android:layout_width="match_parent"
@@ -46,6 +65,7 @@
         android:clipChildren="false"
         android:clipToPadding="false"
         android:overScrollMode="never"
+        android:paddingTop="8dp"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
         android:paddingBottom="24dp"

@@ -1,11 +1,17 @@
 package com.fongmi.android.tv.ui.dialog;
 
 import android.text.Editable;
+import android.text.TextUtils;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 
+import androidx.appcompat.widget.LinearLayoutCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.viewbinding.ViewBinding;
 
+import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.databinding.DialogSiteBinding;
@@ -15,13 +21,24 @@ import com.fongmi.android.tv.ui.custom.CustomTextListener;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickListener {
+
+    private static final Pattern GROUP_PATTERN = Pattern.compile("\\[([^\\]]+)\\]");
+    private static String selectedGroup = "";
 
     private DialogSiteBinding binding;
     private SiteListener listener;
     private SiteAdapter adapter;
+    private List<String> groups;
     private boolean search;
     private boolean change;
 
@@ -57,12 +74,15 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     @Override
     protected void initView() {
         adapter = new SiteAdapter(this);
+        groups = getGroups();
         binding.recycler.setAdapter(adapter);
         adapter.search(search).change(change);
+        setGroupView();
+        filter();
         binding.recycler.setItemAnimator(null);
         binding.recycler.setHasFixedSize(true);
         binding.recycler.addItemDecoration(new SpaceItemDecoration(1, 8));
-        binding.recycler.post(() -> binding.recycler.scrollToPosition(VodConfig.getHomeIndex()));
+        binding.recycler.post(() -> binding.recycler.scrollToPosition(adapter.getSelectedPosition()));
     }
 
     @Override
@@ -74,10 +94,80 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         binding.keyword.addTextChangedListener(new CustomTextListener() {
             @Override
             public void afterTextChanged(Editable s) {
-                adapter.filter(s.toString());
+                filter();
             }
         });
         binding.search.setOnClickListener(view -> Util.hideKeyboard(binding.keyword));
+    }
+
+    private List<String> getGroups() {
+        LinkedHashSet<String> result = new LinkedHashSet<>();
+        for (Site site : VodConfig.get().getSites()) {
+            if (site.isHide()) continue;
+            Matcher matcher = GROUP_PATTERN.matcher(site.getName());
+            while (matcher.find()) result.add("[" + matcher.group(1) + "]");
+        }
+        return new ArrayList<>(result);
+    }
+
+    private void setGroupView() {
+        if (groups.isEmpty()) {
+            selectedGroup = "";
+            binding.groupScroll.setVisibility(View.GONE);
+            return;
+        }
+        if (!TextUtils.isEmpty(selectedGroup) && !groups.contains(selectedGroup)) selectedGroup = "";
+        binding.groupScroll.setVisibility(View.VISIBLE);
+        binding.groupList.removeAllViews();
+        for (String group : groups) binding.groupList.addView(getGroupView(group));
+        updateGroupView();
+    }
+
+    private MaterialButton getGroupView(String group) {
+        MaterialButton button = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        LinearLayoutCompat.LayoutParams params = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.setMarginEnd(ResUtil.dp2px(8));
+        button.setLayoutParams(params);
+        button.setText(group);
+        button.setSingleLine(true);
+        button.setAllCaps(false);
+        button.setMinWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumWidth(0);
+        button.setMinimumHeight(0);
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setPadding(ResUtil.dp2px(14), ResUtil.dp2px(6), ResUtil.dp2px(14), ResUtil.dp2px(6));
+        button.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_control));
+        button.setBackgroundTintList(ContextCompat.getColorStateList(requireContext(), R.color.selector_button));
+        button.setStrokeColor(ContextCompat.getColorStateList(requireContext(), R.color.selector_stroke));
+        button.setOnClickListener(v -> onGroupClick(group, button));
+        return button;
+    }
+
+    private void onGroupClick(String group, View view) {
+        selectedGroup = group.equals(selectedGroup) ? "" : group;
+        updateGroupView();
+        filter();
+        binding.recycler.scrollToPosition(0);
+        if (!TextUtils.isEmpty(selectedGroup)) centerGroup(view);
+    }
+
+    private void updateGroupView() {
+        for (int i = 0; i < binding.groupList.getChildCount(); i++) {
+            View view = binding.groupList.getChildAt(i);
+            boolean selected = ((MaterialButton) view).getText().toString().equals(selectedGroup);
+            view.setSelected(selected);
+            view.setAlpha(TextUtils.isEmpty(selectedGroup) || selected ? 1.0f : 0.5f);
+        }
+    }
+
+    private void centerGroup(View view) {
+        binding.groupScroll.post(() -> binding.groupScroll.smoothScrollTo(Math.max(0, view.getLeft() + view.getWidth() / 2 - binding.groupScroll.getWidth() / 2), 0));
+    }
+
+    private void filter() {
+        adapter.filter(selectedGroup, binding.keyword.getText().toString());
     }
 
     @Override

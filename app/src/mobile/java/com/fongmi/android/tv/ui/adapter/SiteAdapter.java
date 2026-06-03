@@ -22,6 +22,7 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     private final OnClickListener listener;
     private final List<Site> mAllItems;
     private final List<Site> mItems;
+    private String group;
     private boolean search;
     private boolean change;
 
@@ -61,13 +62,29 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     }
 
     public List<Site> getItems() {
-        return mAllItems;
+        return mItems;
+    }
+
+    public int getSelectedPosition() {
+        for (int i = 0; i < mItems.size(); i++) if (mItems.get(i).isSelected()) return i;
+        return 0;
     }
 
     public void filter(String keyword) {
+        filter(group, keyword);
+    }
+
+    public void filter(String group, String keyword) {
+        this.group = group;
         mItems.clear();
         String filter = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
-        for (Site site : mAllItems) if (TextUtils.isEmpty(filter) || site.getName().toLowerCase(Locale.ROOT).contains(filter)) mItems.add(site);
+        String tag = group == null ? "" : group.trim();
+        for (Site site : mAllItems) {
+            String name = site.getName();
+            boolean matchGroup = TextUtils.isEmpty(tag) || name.contains(tag);
+            boolean matchKeyword = TextUtils.isEmpty(filter) || name.toLowerCase(Locale.ROOT).contains(filter);
+            if (matchGroup && matchKeyword) mItems.add(site);
+        }
         notifyDataSetChanged();
     }
 
