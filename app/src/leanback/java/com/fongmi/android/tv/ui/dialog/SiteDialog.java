@@ -48,11 +48,11 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private boolean list() {
-        return Setting.getSiteMode() == 0 || adapter.getItemCount() < GRID_COUNT;
+        return action && Setting.getSiteMode() == 0;
     }
 
     private int getCount() {
-        return list() ? 1 : Math.max(2, Math.min((int) Math.ceil((double) adapter.getItemCount() / GRID_COUNT), 3));
+        return list() ? 1 : Math.min(adapter.getItemCount(), 3);
     }
 
     private int getIcon() {
@@ -110,8 +110,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private void setMode() {
-        if (adapter.getItemCount() < GRID_COUNT) Setting.putSiteMode(0);
-        binding.mode.setEnabled(adapter.getItemCount() >= GRID_COUNT);
+        binding.mode.setEnabled(adapter.getItemCount() > 1);
         binding.mode.setImageResource(getIcon());
     }
 

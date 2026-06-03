@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="site_accent">#66D9C4</color>
-    <color name="site_dialog_panel">#EE101418</color>
-    <color name="site_dialog_stroke">#22FFFFFF</color>
-    <color name="site_focus_stroke">#F2FFFFFF</color>
-    <color name="site_item_normal">#1AFFFFFF</color>
-    <color name="site_item_focused">#33FFFFFF</color>
-    <color name="site_item_selected">#243D4F4B</color>
-    <color name="site_item_selected_focused">#33485E58</color>
-    <color name="site_item_selected_stroke">#667FE6D4</color>
+    <color name="site_accent">#FFEB3B</color>
+    <color name="site_dialog_panel">#FFFFFFFF</color>
+    <color name="site_dialog_stroke">#00000000</color>
+    <color name="site_focus_stroke">#FFFFFFFF</color>
+    <color name="site_item_normal">#757575</color>
+    <color name="site_item_focused">#2196F3</color>
+    <color name="site_item_selected">#2196F3</color>
+    <color name="site_item_selected_focused">#2196F3</color>
+    <color name="site_item_selected_stroke">#00000000</color>
 </resources>
