@@ -38,6 +38,7 @@
         android:fillViewport="true">
 
         <LinearLayout
+            android:id="@+id/pageContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -562,17 +563,20 @@
                 app:strokeWidth="1dp">
 
                 <LinearLayout
+                    android:id="@+id/contentInner"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
 
                     <LinearLayout
+                        android:id="@+id/heroRow"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal">
 
                         <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/posterCard"
                             android:layout_width="112dp"
                             android:layout_height="160dp"
                             app:cardCornerRadius="16dp"
@@ -588,6 +592,7 @@
                         </com.google.android.material.card.MaterialCardView>
 
                         <LinearLayout
+                            android:id="@+id/detailInfo"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="14dp"

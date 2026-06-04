@@ -500,10 +500,11 @@
     <string name="detail_quality">画质</string>
     <string name="setting_tmdb">TMDB 配置</string>
     <string name="setting_audio_source">音频源配置</string>
-    <string name="setting_detail_open_mode">详情打开方式</string>
+    <string name="setting_detail_open_mode">详情页模式</string>
     <string name="setting_detail_open_fusion">沉浸融合</string>
-    <string name="setting_detail_open_enhanced">增强详情</string>
+    <string name="setting_detail_open_enhanced">资料详情</string>
     <string name="setting_detail_open_direct">直达播放</string>
+    <string name="setting_detail_open_cinema">光影剧幕</string>
     <string name="setting_configured">已配置</string>
     <string name="setting_unconfigured">未配置</string>
     <string name="dialog_tmdb_key">TMDB API Key</string>

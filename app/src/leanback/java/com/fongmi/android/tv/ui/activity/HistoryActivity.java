@@ -59,6 +59,7 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
     @Override
     public void onItemClick(History item) {
         if (Setting.isSearchDetailPage()) TmdbDetailActivity.startPlayback(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(), false);
+        else if (Setting.isCinemaDetailPage()) TmdbDetailActivity.startPlayback(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(), Setting.DETAIL_OPEN_CINEMA);
         else if (Setting.isFusionDetailPage()) TmdbDetailActivity.startPlayback(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(), true);
         else VideoActivity.startDirect(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks());
     }

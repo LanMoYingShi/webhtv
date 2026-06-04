@@ -29,6 +29,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 public class SettingEnhanceFragment extends BaseFragment {
 
     private static final int[] SEARCH_THREADS = {1, 2, 4, 6, 8, 10, 12, 16, 20, 32};
+    private static final int[] DETAIL_OPEN_MODES = {Setting.DETAIL_OPEN_FUSION, Setting.DETAIL_OPEN_ENHANCED, Setting.DETAIL_OPEN_CINEMA, Setting.DETAIL_OPEN_DIRECT};
 
     private FragmentSettingEnhanceBinding mBinding;
 
@@ -89,11 +90,14 @@ public class SettingEnhanceFragment extends BaseFragment {
     }
 
     private String getDetailOpenMode() {
-        return getDetailOpenModes()[Setting.getDetailOpenMode()];
+        String[] labels = getDetailOpenModes();
+        int mode = Setting.getDetailOpenMode();
+        for (int i = 0; i < DETAIL_OPEN_MODES.length; i++) if (DETAIL_OPEN_MODES[i] == mode) return labels[i];
+        return labels[1];
     }
 
     private String[] getDetailOpenModes() {
-        return new String[]{getString(R.string.setting_detail_open_fusion), getString(R.string.setting_detail_open_enhanced), getString(R.string.setting_detail_open_direct)};
+        return new String[]{getString(R.string.setting_detail_open_fusion), getString(R.string.setting_detail_open_enhanced), getString(R.string.setting_detail_open_cinema), getString(R.string.setting_detail_open_direct)};
     }
 
     private void setSearchThread(View view) {
@@ -104,24 +108,31 @@ public class SettingEnhanceFragment extends BaseFragment {
     }
 
     private void setDetailOpenMode(View view) {
-        new MaterialAlertDialogBuilder(requireActivity()).setTitle(R.string.setting_detail_open_mode).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(getDetailOpenModes(), Setting.getDetailOpenMode(), (dialog, which) -> {
-            if (requiresTmdb(which) && !Setting.isTmdbReady()) {
+        new MaterialAlertDialogBuilder(requireActivity()).setTitle(R.string.setting_detail_open_mode).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(getDetailOpenModes(), getDetailOpenModeIndex(), (dialog, which) -> {
+            int mode = DETAIL_OPEN_MODES[which];
+            if (requiresTmdb(mode) && !Setting.isTmdbReady()) {
                 dialog.dismiss();
                 Notify.show(R.string.detail_tmdb_need_key);
                 FeatureConfigDialog.create(requireActivity()).type(FeatureConfigDialog.TMDB).onDismiss(() -> {
-                    if (Setting.isTmdbReady()) Setting.putDetailOpenMode(which);
+                    if (Setting.isTmdbReady()) Setting.putDetailOpenMode(mode);
                     setText();
                 }).show();
                 return;
             }
-            Setting.putDetailOpenMode(which);
+            Setting.putDetailOpenMode(mode);
             mBinding.detailOpenModeText.setText(getDetailOpenMode());
             dialog.dismiss();
         }).show();
     }
 
+    private int getDetailOpenModeIndex() {
+        int mode = Setting.getDetailOpenMode();
+        for (int i = 0; i < DETAIL_OPEN_MODES.length; i++) if (DETAIL_OPEN_MODES[i] == mode) return i;
+        return 1;
+    }
+
     private boolean requiresTmdb(int mode) {
-        return mode == Setting.DETAIL_OPEN_FUSION || mode == Setting.DETAIL_OPEN_ENHANCED;
+        return Setting.isTmdbMode(mode);
     }
 
     private void setTmdbConfig(View view) {

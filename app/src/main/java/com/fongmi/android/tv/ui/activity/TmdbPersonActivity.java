@@ -3,23 +3,34 @@ package com.fongmi.android.tv.ui.activity;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.view.GestureDetector;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.viewbinding.ViewBinding;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.SiteApi;
 import com.fongmi.android.tv.api.config.VodConfig;
@@ -36,10 +47,12 @@ import com.fongmi.android.tv.ui.adapter.TmdbPersonPhotoAdapter;
 import com.fongmi.android.tv.ui.adapter.TmdbWorkAdapter;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.utils.ImgUtil;
+import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.Notify;
+import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
+import com.fongmi.android.tv.utils.Util;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
@@ -50,6 +63,7 @@ import java.util.Locale;
 public class TmdbPersonActivity extends BaseActivity {
 
     private final TmdbService tmdbService = new TmdbService();
+    private final List<String> personPhotos = new ArrayList<>();
     private final List<TmdbItem> allWorks = new ArrayList<>();
     private final List<TmdbItem> castWorks = new ArrayList<>();
     private final List<TmdbItem> crewWorks = new ArrayList<>();
@@ -59,9 +73,14 @@ public class TmdbPersonActivity extends BaseActivity {
     private TmdbConfig tmdbConfig;
     private String filter = "all";
     private String siteKey;
+    private int detailMode;
     private boolean light;
 
     public static void start(Activity activity, TmdbPerson person, String siteKey) {
+        start(activity, person, siteKey, Setting.getDetailOpenMode());
+    }
+
+    public static void start(Activity activity, TmdbPerson person, String siteKey, int detailMode) {
         if (activity == null || person == null || person.getPersonId() <= 0) return;
         Intent intent = new Intent(activity, TmdbPersonActivity.class);
         intent.putExtra("person_id", person.getPersonId());
@@ -71,6 +90,7 @@ public class TmdbPersonActivity extends BaseActivity {
         intent.putExtra("person_department", person.getKnownForDepartment());
         intent.putExtra("person_biography", person.getBiography());
         intent.putExtra("site_key", siteKey);
+        intent.putExtra("detail_mode", normalizeDetailMode(detailMode));
         activity.startActivity(intent);
     }
 
@@ -83,6 +103,7 @@ public class TmdbPersonActivity extends BaseActivity {
     protected void initView(Bundle savedInstanceState) {
         tmdbConfig = TmdbConfig.objectFrom(Setting.getTmdbConfig());
         siteKey = getIntent().getStringExtra("site_key");
+        detailMode = normalizeDetailMode(getIntent().getIntExtra("detail_mode", Setting.getDetailOpenMode()));
         light = resolveLightTheme();
         setThemeColors();
         setInitialPerson();
@@ -137,7 +158,7 @@ public class TmdbPersonActivity extends BaseActivity {
                     SearchActivity.direct(this, item.getTitle());
                     return;
                 }
-                TmdbDetailActivity.start(this, site.getKey(), match.getId(), match.getName(), match.getPic(), "", item);
+                TmdbDetailActivity.start(this, site.getKey(), match.getId(), match.getName(), match.getPic(), "", item, detailMode);
             });
         });
     }
@@ -223,6 +244,8 @@ public class TmdbPersonActivity extends BaseActivity {
         castWorks.addAll(cast);
         crewWorks.clear();
         crewWorks.addAll(crew);
+        personPhotos.clear();
+        personPhotos.addAll(photos);
 
         binding.photosTitle.setVisibility(photos.isEmpty() ? View.GONE : View.VISIBLE);
         binding.photos.setVisibility(photos.isEmpty() ? View.GONE : View.VISIBLE);
@@ -380,20 +403,152 @@ public class TmdbPersonActivity extends BaseActivity {
     }
 
     private void showPhotoDialog(int position, String url) {
-        Dialog dialog = new MaterialAlertDialogBuilder(this).create();
+        if (TextUtils.isEmpty(url)) return;
+        List<String> photos = new ArrayList<>(personPhotos);
+        if (photos.isEmpty()) photos.add(url);
+        int start = position >= 0 && position < photos.size() ? position : Math.max(0, photos.indexOf(url));
+        int[] current = new int[]{Math.max(0, start)};
+
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         ImageView image = new ImageView(this);
-        image.setAdjustViewBounds(true);
+        image.setFocusable(true);
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        image.setBackgroundColor(Color.TRANSPARENT);
-        ImgUtil.load("tmdb_person_photo_original_" + position, highResTmdbImage(url), image);
-        dialog.setContentView(image);
+        image.setBackgroundColor(Color.BLACK);
+        image.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        ProgressBar progress = new ProgressBar(this);
+        progress.setIndeterminate(true);
+        progress.setVisibility(View.GONE);
+        FrameLayout.LayoutParams progressParams = new FrameLayout.LayoutParams(ResUtil.dp2px(38), ResUtil.dp2px(38), android.view.Gravity.CENTER);
+        progress.setLayoutParams(progressParams);
+
+        FrameLayout content = new FrameLayout(this);
+        content.setBackgroundColor(Color.BLACK);
+        content.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        content.addView(image);
+        content.addView(progress);
+        dialog.setContentView(content);
+        int[] request = new int[]{0};
+        int[] photoOrientation = new int[]{ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED};
+        int originalOrientation = getRequestedOrientation();
+        boolean wasFullscreen = Util.isFullscreen(this);
+        dialog.setOnDismissListener(instance -> {
+            setRequestedOrientation(originalOrientation);
+            if (!wasFullscreen) Util.toggleFullscreen(this, false);
+        });
+        GestureDetector gesture = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDown(MotionEvent event) {
+                return true;
+            }
+
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent event) {
+                if (photos.size() <= 1) {
+                    dialog.dismiss();
+                    return true;
+                }
+                float x = event.getX();
+                int width = image.getWidth();
+                if (x < width * 0.33f) {
+                    showPhotoAt(image, progress, photos, current, request, photoOrientation, -1);
+                } else if (x > width * 0.67f) {
+                    showPhotoAt(image, progress, photos, current, request, photoOrientation, 1);
+                } else {
+                    dialog.dismiss();
+                }
+                return true;
+            }
+
+            @Override
+            public boolean onFling(MotionEvent down, MotionEvent up, float velocityX, float velocityY) {
+                if (photos.size() <= 1 || down == null || up == null) return false;
+                float distanceX = up.getX() - down.getX();
+                if (Math.abs(distanceX) < ResUtil.dp2px(48) || Math.abs(velocityX) < 120f) return false;
+                showPhotoAt(image, progress, photos, current, request, photoOrientation, distanceX < 0 ? 1 : -1);
+                return true;
+            }
+        });
+        image.setOnTouchListener((view, event) -> gesture.onTouchEvent(event));
         image.setOnClickListener(view -> dialog.dismiss());
+        dialog.setOnKeyListener((instance, keyCode, event) -> {
+            if (!KeyUtil.isActionUp(event)) return false;
+            if (KeyUtil.isLeftKey(event)) {
+                showPhotoAt(image, progress, photos, current, request, photoOrientation, -1);
+                return true;
+            }
+            if (KeyUtil.isRightKey(event)) {
+                showPhotoAt(image, progress, photos, current, request, photoOrientation, 1);
+                return true;
+            }
+            if (KeyUtil.isEnterKey(event) || keyCode == KeyEvent.KEYCODE_BACK) {
+                dialog.dismiss();
+                return true;
+            }
+            return false;
+        });
         dialog.show();
         Window window = dialog.getWindow();
         if (window == null) return;
-        window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        window.setDimAmount(0.62f);
+        window.setBackgroundDrawableResource(android.R.color.black);
         window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        Util.hideSystemUI(window);
+        image.requestFocus();
+        loadPhotoImage(image, progress, photos.get(current[0]), current[0], request, photoOrientation);
+    }
+
+    private void showPhotoAt(ImageView image, ProgressBar progress, List<String> photos, int[] current, int[] request, int[] photoOrientation, int direction) {
+        if (photos.isEmpty()) return;
+        int next = (current[0] + direction + photos.size()) % photos.size();
+        if (next == current[0]) return;
+        current[0] = next;
+        loadPhotoImage(image, progress, photos.get(current[0]), current[0], request, photoOrientation);
+    }
+
+    private void loadPhotoImage(ImageView image, ProgressBar progress, String url, int position, int[] request, int[] photoOrientation) {
+        int token = ++request[0];
+        progress.setVisibility(View.VISIBLE);
+        try {
+            Glide.with(image)
+                    .load(ImgUtil.getUrl(highResTmdbImage(url)))
+                    .fitCenter()
+                    .into(new CustomTarget<Drawable>() {
+                        @Override
+                        public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
+                            if (token != request[0]) return;
+                            image.setImageDrawable(resource);
+                            progress.setVisibility(View.GONE);
+                            applyPhotoOrientation(resource, photoOrientation);
+                        }
+
+                        @Override
+                        public void onLoadFailed(@Nullable Drawable errorDrawable) {
+                            if (token != request[0]) return;
+                            if (image.getDrawable() == null && errorDrawable != null) image.setImageDrawable(errorDrawable);
+                            progress.setVisibility(View.GONE);
+                        }
+
+                        @Override
+                        public void onLoadCleared(@Nullable Drawable placeholder) {
+                        }
+                    });
+        } catch (Throwable e) {
+            progress.setVisibility(View.GONE);
+            Notify.show(R.string.detail_tmdb_empty);
+        }
+    }
+
+    private void applyPhotoOrientation(Drawable resource, int[] photoOrientation) {
+        if (!Util.isMobile() || resource == null) return;
+        int width = resource.getIntrinsicWidth();
+        int height = resource.getIntrinsicHeight();
+        if (width <= 0 || height <= 0) return;
+        int target = width >= height ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT;
+        if (photoOrientation[0] == target) return;
+        photoOrientation[0] = target;
+        setRequestedOrientation(target);
     }
 
     private String highResTmdbImage(String url) {
@@ -413,6 +568,10 @@ public class TmdbPersonActivity extends BaseActivity {
     private String coalesce(String... values) {
         for (String value : values) if (!TextUtils.isEmpty(value)) return value;
         return "";
+    }
+
+    private static int normalizeDetailMode(int mode) {
+        return Setting.isTmdbMode(mode) ? mode : Setting.DETAIL_OPEN_ENHANCED;
     }
 
     private record FilterButton(String key, MaterialButton button, int count) {

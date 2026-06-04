@@ -4,13 +4,16 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.widget.AppCompatImageView;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.TmdbItem;
-import com.fongmi.android.tv.databinding.AdapterTmdbRailItemBinding;
 import com.fongmi.android.tv.utils.ImgUtil;
+import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +27,7 @@ public class TmdbRailAdapter extends RecyclerView.Adapter<TmdbRailAdapter.ViewHo
 
     private final Listener listener;
     private final List<TmdbItem> items = new ArrayList<>();
+    private boolean cinema;
 
     public TmdbRailAdapter(Listener listener) {
         this.listener = listener;
@@ -35,27 +39,39 @@ public class TmdbRailAdapter extends RecyclerView.Adapter<TmdbRailAdapter.ViewHo
         notifyDataSetChanged();
     }
 
+    public void setCinema(boolean cinema) {
+        this.cinema = cinema;
+        notifyDataSetChanged();
+    }
+
+    @Override
+    public int getItemViewType(int position) {
+        return cinema ? 1 : 0;
+    }
+
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        return new ViewHolder(AdapterTmdbRailItemBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
+        int layout = viewType == 1 ? R.layout.adapter_tmdb_rail_landscape : R.layout.adapter_tmdb_rail_item;
+        return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(layout, parent, false));
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         TmdbItem item = items.get(position);
         CardMeta meta = CardMeta.from(item.getSubtitle());
-        holder.binding.title.setText(item.getTitle());
-        holder.binding.subtitle.setText(meta.subtitle);
-        holder.binding.subtitle.setVisibility(TextUtils.isEmpty(meta.subtitle) ? View.GONE : View.VISIBLE);
-        holder.binding.rating.setText(meta.rating);
-        holder.binding.rating.setVisibility(TextUtils.isEmpty(meta.rating) ? View.GONE : View.VISIBLE);
-        holder.binding.title.setTextColor(0xFFFFFFFF);
-        holder.binding.subtitle.setTextColor(0x99FFFFFF);
-        holder.binding.rating.setTextColor(0xFFFFFFFF);
-        TmdbCardFocusHelper.bind(holder.binding.getRoot(), 0xFF16202A, 0x33FFFFFF);
-        ImgUtil.load(item.getTitle(), item.getPosterUrl(), holder.binding.poster);
-        holder.binding.getRoot().setOnClickListener(view -> listener.onItemClick(item));
+        holder.title.setText(item.getTitle());
+        holder.subtitle.setText(meta.subtitle);
+        holder.subtitle.setVisibility(TextUtils.isEmpty(meta.subtitle) ? View.GONE : View.VISIBLE);
+        holder.rating.setText(meta.rating);
+        holder.rating.setVisibility(TextUtils.isEmpty(meta.rating) ? View.GONE : View.VISIBLE);
+        holder.title.setTextColor(0xFFFFFFFF);
+        holder.subtitle.setTextColor(cinema ? 0xB3FFFFFF : 0x99FFFFFF);
+        holder.rating.setTextColor(0xFFFFFFFF);
+        TmdbCardFocusHelper.bind(holder.root, cinema ? 0xB314202A : 0xFF16202A, cinema ? 0x33FFFFFF : 0x33FFFFFF);
+        String image = cinema && !TextUtils.isEmpty(item.getBackdropUrl()) ? item.getBackdropUrl() : item.getPosterUrl();
+        ImgUtil.load(item.getTitle(), image, holder.poster);
+        holder.root.setOnClickListener(view -> listener.onItemClick(item));
     }
 
     @Override
@@ -65,11 +81,19 @@ public class TmdbRailAdapter extends RecyclerView.Adapter<TmdbRailAdapter.ViewHo
 
     static class ViewHolder extends RecyclerView.ViewHolder {
 
-        private final AdapterTmdbRailItemBinding binding;
+        private final MaterialCardView root;
+        private final AppCompatImageView poster;
+        private final TextView title;
+        private final TextView subtitle;
+        private final TextView rating;
 
-        ViewHolder(@NonNull AdapterTmdbRailItemBinding binding) {
-            super(binding.getRoot());
-            this.binding = binding;
+        ViewHolder(@NonNull View itemView) {
+            super(itemView);
+            root = (MaterialCardView) itemView;
+            poster = itemView.findViewById(R.id.poster);
+            title = itemView.findViewById(R.id.title);
+            subtitle = itemView.findViewById(R.id.subtitle);
+            rating = itemView.findViewById(R.id.rating);
         }
     }
 

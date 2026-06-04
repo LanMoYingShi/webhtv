@@ -27,6 +27,7 @@ public class Setting {
     public static final int DETAIL_OPEN_FUSION = 0;
     public static final int DETAIL_OPEN_ENHANCED = 1;
     public static final int DETAIL_OPEN_DIRECT = 2;
+    public static final int DETAIL_OPEN_CINEMA = 3;
 
     public static String getDoh() {
         return Prefers.getString("doh");
@@ -303,11 +304,15 @@ public class Setting {
     }
 
     public static int nextDetailOpenMode() {
-        return (getDetailOpenMode() + 1) % 3;
+        return (getDetailOpenMode() + 1) % 4;
     }
 
     public static boolean isSearchDetailPage() {
         return getDetailOpenMode() == DETAIL_OPEN_ENHANCED;
+    }
+
+    public static boolean isCinemaDetailPage() {
+        return getDetailOpenMode() == DETAIL_OPEN_CINEMA;
     }
 
     public static boolean isFusionDetailPage() {
@@ -323,12 +328,12 @@ public class Setting {
     }
 
     private static int clampDetailOpenMode(int mode) {
-        if (mode < DETAIL_OPEN_FUSION || mode > DETAIL_OPEN_DIRECT) return DETAIL_OPEN_ENHANCED;
+        if (mode < DETAIL_OPEN_FUSION || mode > DETAIL_OPEN_CINEMA) return DETAIL_OPEN_ENHANCED;
         return mode;
     }
 
-    private static boolean isTmdbMode(int mode) {
-        return mode == DETAIL_OPEN_FUSION || mode == DETAIL_OPEN_ENHANCED;
+    public static boolean isTmdbMode(int mode) {
+        return mode == DETAIL_OPEN_FUSION || mode == DETAIL_OPEN_ENHANCED || mode == DETAIL_OPEN_CINEMA;
     }
 
     public static int getTmdbDetailTheme() {

@@ -505,10 +505,11 @@
     <string name="detail_quality">Quality</string>
     <string name="setting_tmdb">TMDB config</string>
     <string name="setting_audio_source">Audio source config</string>
-    <string name="setting_detail_open_mode">Detail open mode</string>
+    <string name="setting_detail_open_mode">Detail page mode</string>
     <string name="setting_detail_open_fusion">Immersive fusion</string>
-    <string name="setting_detail_open_enhanced">Enhanced detail</string>
+    <string name="setting_detail_open_enhanced">Profile detail</string>
     <string name="setting_detail_open_direct">Direct playback</string>
+    <string name="setting_detail_open_cinema">Cinema stage</string>
     <string name="setting_configured">Configured</string>
     <string name="setting_unconfigured">Not configured</string>
     <string name="dialog_tmdb_key">TMDB API key</string>

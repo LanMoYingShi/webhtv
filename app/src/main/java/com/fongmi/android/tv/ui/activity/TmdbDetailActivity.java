@@ -8,6 +8,7 @@ import android.content.res.Configuration;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.GestureDetector;
@@ -19,6 +20,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -190,22 +192,38 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     public static void start(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem) {
-        start(activity, key, id, name, pic, mark, tmdbItem, false, false);
+        start(activity, key, id, name, pic, mark, tmdbItem, Setting.DETAIL_OPEN_ENHANCED, false);
+    }
+
+    public static void start(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem, int detailMode) {
+        start(activity, key, id, name, pic, mark, tmdbItem, detailMode, false);
     }
 
     public static void startFusion(Activity activity, String key, String id, String name, String pic, String mark) {
-        start(activity, key, id, name, pic, mark, null, true, false);
+        start(activity, key, id, name, pic, mark, null, Setting.DETAIL_OPEN_FUSION, false);
     }
 
     public static void startFusion(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem) {
-        start(activity, key, id, name, pic, mark, tmdbItem, true, false);
+        start(activity, key, id, name, pic, mark, tmdbItem, Setting.DETAIL_OPEN_FUSION, false);
+    }
+
+    public static void startCinema(Activity activity, String key, String id, String name, String pic, String mark) {
+        start(activity, key, id, name, pic, mark, null, Setting.DETAIL_OPEN_CINEMA, false);
+    }
+
+    public static void startCinema(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem) {
+        start(activity, key, id, name, pic, mark, tmdbItem, Setting.DETAIL_OPEN_CINEMA, false);
     }
 
     public static void startPlayback(Activity activity, String key, String id, String name, String pic, String mark, boolean fusion) {
-        start(activity, key, id, name, pic, mark, null, fusion, true);
+        startPlayback(activity, key, id, name, pic, mark, fusion ? Setting.DETAIL_OPEN_FUSION : Setting.DETAIL_OPEN_ENHANCED);
     }
 
-    private static void start(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem, boolean fusion, boolean autoPlay) {
+    public static void startPlayback(Activity activity, String key, String id, String name, String pic, String mark, int detailMode) {
+        start(activity, key, id, name, pic, mark, null, detailMode, true);
+    }
+
+    private static void start(Activity activity, String key, String id, String name, String pic, String mark, @Nullable TmdbItem tmdbItem, int detailMode, boolean autoPlay) {
         if (!TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && AudioUtil.isAudioSiteEnabled(key)) {
             VideoActivity.startDirect(activity, key, id, name, pic, mark);
             return;
@@ -219,7 +237,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             return;
         }
         Intent intent = new Intent(activity, TmdbDetailActivity.class);
-        intent.putExtra("fusion", fusion);
+        detailMode = normalizeDetailMode(detailMode);
+        intent.putExtra("detail_mode", detailMode);
+        intent.putExtra("fusion", detailMode == Setting.DETAIL_OPEN_FUSION);
         intent.putExtra("auto_play", autoPlay);
         intent.putExtra("key", key);
         intent.putExtra("id", id);
@@ -228,6 +248,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         intent.putExtra("mark", mark);
         putTmdbItem(intent, tmdbItem);
         activity.startActivity(intent);
+    }
+
+    private static int normalizeDetailMode(int detailMode) {
+        return Setting.isTmdbMode(detailMode) ? detailMode : Setting.DETAIL_OPEN_ENHANCED;
     }
 
     private static void putTmdbItem(Intent intent, @Nullable TmdbItem item) {
@@ -343,20 +367,21 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.episodeViewMode.setOnClickListener(view -> toggleEpisodeViewMode());
         binding.overview.setOnClickListener(view -> toggleOverview());
         binding.overviewToggle.setOnClickListener(view -> toggleOverview());
-        binding.headerTitle.setText(R.string.detail_page_title);
+        binding.headerTitle.setText(detailModeTitle());
+        binding.headerTitle.setVisibility(isCinemaMode() ? View.INVISIBLE : View.VISIBLE);
         binding.title.setText(getNameText());
         binding.subtitle.setText("");
         binding.sourceValue.setText(getString(R.string.detail_source_current, getKeyText()));
         binding.overviewToggle.setVisibility(View.GONE);
         binding.play.setText(R.string.detail_play_now);
         binding.keep.setText(R.string.keep);
-        if (isFusionMode()) binding.headerTitle.setText(R.string.setting_detail_open_fusion);
         binding.playerPanel.setVisibility(isFusionMode() ? View.VISIBLE : View.GONE);
         binding.heroSpacer.setVisibility(isFusionMode() ? View.GONE : View.VISIBLE);
         binding.keepTop.setVisibility(View.GONE);
         binding.rematchTop.setVisibility(View.GONE);
         binding.fusionActions.setVisibility(isFusionMode() ? View.VISIBLE : View.GONE);
         binding.detailActions.setVisibility(isFusionMode() ? View.GONE : View.VISIBLE);
+        applyDetailTemplate();
         initFusionPlayer();
         binding.episodeEmpty.setText(R.string.detail_source_episode_empty);
         if (!TextUtils.isEmpty(getPicText())) {
@@ -382,6 +407,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         creatorAdapter = new TmdbPersonAdapter(this::loadPersonDetail);
         episodePhotoAdapter = new TmdbPhotoAdapter(this::showPhotoDialog);
         relatedAdapter = new TmdbRailAdapter(this::openRelatedItem);
+        castAdapter.setCinema(isCinemaMode());
+        creatorAdapter.setCinema(isCinemaMode());
+        relatedAdapter.setCinema(isCinemaMode());
         updateEpisodeLayoutManager();
         binding.episodeContainer.setNestedScrollingEnabled(false);
         binding.episodeContainer.setAdapter(episodeAdapter);
@@ -632,14 +660,16 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void applyDetailTheme() {
         lightTheme = resolveLightTheme();
         ThemeColors colors = lightTheme ? ThemeColors.light() : ThemeColors.dark();
+        if (isCinemaMode()) colors = ThemeColors.cinema();
         binding.root.setBackgroundColor(colors.background);
         binding.hero.setBackgroundColor(colors.background);
-        binding.backdropFill.setAlpha(lightTheme ? 0.35f : 0.5f);
-        binding.backdrop.setAlpha(lightTheme ? 0.92f : 1f);
-        binding.backdropShade.setBackgroundColor(colors.backdropShade);
+        binding.backdropFill.setAlpha(isCinemaMode() ? 0.9f : lightTheme ? 0.35f : 0.5f);
+        binding.backdrop.setAlpha(isCinemaMode() ? 0.24f : lightTheme ? 0.92f : 1f);
+        binding.backdropShade.setBackground(isCinemaMode() ? cinemaBackdropShade() : colorDrawable(colors.backdropShade));
         setCard(binding.contentPanel, colors.panel, colors.line);
         setPlayerCard(colors);
         setCard(binding.tmdbPanel, colors.panel, colors.line);
+        applyTemplateCardChrome(colors);
         tintTextTree(binding.getRoot(), colors);
         setButton(binding.keep, colors.control, colors.line, colors.primary);
         setButton(binding.keepTop, colors.control, colors.line, colors.primary);
@@ -673,6 +703,148 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             episodeAdapter.setActiveStrokeColor(colors.accent);
         }
         if (episodePhotoAdapter != null) episodePhotoAdapter.setLight(lightTheme);
+    }
+
+    private void applyTemplateCardChrome(ThemeColors colors) {
+        if (isCinemaMode()) {
+            binding.contentPanel.setCardBackgroundColor(0x00000000);
+            binding.contentPanel.setStrokeWidth(0);
+            binding.tmdbPanel.setCardBackgroundColor(0x00000000);
+            binding.tmdbPanel.setStrokeWidth(0);
+        } else {
+            binding.contentPanel.setCardBackgroundColor(colors.panel);
+            binding.contentPanel.setStrokeColor(colors.line);
+            binding.contentPanel.setStrokeWidth(ResUtil.dp2px(1));
+            binding.tmdbPanel.setCardBackgroundColor(colors.panel);
+            binding.tmdbPanel.setStrokeColor(colors.line);
+            binding.tmdbPanel.setStrokeWidth(ResUtil.dp2px(1));
+        }
+    }
+
+    private void applyDetailTemplate() {
+        if (isCinemaMode()) applyCinemaDetailTemplate();
+        else applyDefaultDetailTemplate();
+    }
+
+    private void applyDefaultDetailTemplate() {
+        setPaddingDp(binding.pageContent, 0, 0, 0, 28);
+        setHeightDp(binding.heroSpacer, isFusionMode() ? 0 : 102);
+        setWidthMatch(binding.contentPanel);
+        setWidthMatch(binding.tmdbSection);
+        setMarginsDp(binding.contentPanel, 16, 0, 16, 0);
+        setMarginsDp(binding.tmdbSection, 16, 16, 16, 0);
+        binding.contentPanel.setRadius(ResUtil.dp2px(20));
+        binding.tmdbPanel.setRadius(ResUtil.dp2px(20));
+        setPaddingDp(binding.contentInner, 16, 16, 16, 16);
+        binding.heroRow.setOrientation(LinearLayout.HORIZONTAL);
+        binding.heroRow.setGravity(0);
+        binding.posterCard.setVisibility(View.VISIBLE);
+        LinearLayout.LayoutParams posterParams = new LinearLayout.LayoutParams(ResUtil.dp2px(112), ResUtil.dp2px(160));
+        binding.posterCard.setLayoutParams(posterParams);
+        binding.posterCard.setRadius(ResUtil.dp2px(16));
+        LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        infoParams.setMarginStart(ResUtil.dp2px(14));
+        binding.detailInfo.setLayoutParams(infoParams);
+        setWidthMatch(binding.detailActions);
+        setWidthMatch(binding.flagTitle);
+        setWidthMatch(binding.flagScroll);
+        binding.title.setTextSize(28f);
+        binding.overview.setTextSize(13f);
+        setHeightDp(binding.episodePhotoList, 124);
+        setHeightDp(binding.castList, 180);
+        setHeightDp(binding.creatorList, 180);
+        setHeightDp(binding.relatedList, 262);
+    }
+
+    private void applyCinemaDetailTemplate() {
+        boolean compact = isCompactWidth();
+        int side = ResUtil.dp2px(compact ? 18 : 56);
+        int topWidth = compact ? ViewGroup.LayoutParams.MATCH_PARENT : Math.min(ResUtil.dp2px(760), (int) (getResources().getDisplayMetrics().widthPixels * 0.54f));
+        setPaddingDp(binding.pageContent, 0, 0, 0, 44);
+        setHeightDp(binding.heroSpacer, compact ? 50 : 28);
+        setWidthMatch(binding.contentPanel);
+        setWidthMatch(binding.tmdbSection);
+        setMarginsPx(binding.contentPanel, side, compact ? 6 : 18, side, 0);
+        setMarginsPx(binding.tmdbSection, side, compact ? 22 : 24, side, 0);
+        binding.contentPanel.setRadius(0);
+        binding.tmdbPanel.setRadius(0);
+        setPaddingDp(binding.contentInner, 0, 0, 0, 0);
+        binding.heroRow.setOrientation(LinearLayout.HORIZONTAL);
+        binding.heroRow.setGravity(compact ? 0 : android.view.Gravity.CENTER_VERTICAL);
+        binding.posterCard.setVisibility(View.GONE);
+        LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(topWidth, ViewGroup.LayoutParams.WRAP_CONTENT);
+        infoParams.setMarginStart(0);
+        binding.detailInfo.setLayoutParams(infoParams);
+        setWidthPx(binding.detailActions, topWidth);
+        setWidthMatch(binding.flagTitle);
+        setWidthMatch(binding.flagScroll);
+        binding.title.setTextSize(compact ? 38f : 44f);
+        binding.subtitle.setTextSize(compact ? 13f : 14f);
+        binding.overview.setTextSize(compact ? 14.5f : 16f);
+        binding.overview.setLineSpacing(ResUtil.dp2px(compact ? 4 : 3), 1f);
+        setHeightDp(binding.episodePhotoList, compact ? 128 : 160);
+        setHeightDp(binding.castList, compact ? 112 : 112);
+        setHeightDp(binding.creatorList, compact ? 112 : 112);
+        setHeightDp(binding.relatedList, compact ? 184 : 190);
+        if (castAdapter != null) castAdapter.setCinema(true);
+        if (creatorAdapter != null) creatorAdapter.setCinema(true);
+        if (relatedAdapter != null) relatedAdapter.setCinema(true);
+    }
+
+    private boolean isCompactWidth() {
+        return getResources().getConfiguration().smallestScreenWidthDp < 600;
+    }
+
+    private void setPaddingDp(View view, int left, int top, int right, int bottom) {
+        view.setPadding(ResUtil.dp2px(left), ResUtil.dp2px(top), ResUtil.dp2px(right), ResUtil.dp2px(bottom));
+    }
+
+    private void setMarginsDp(View view, int left, int top, int right, int bottom) {
+        setMarginsPx(view, ResUtil.dp2px(left), ResUtil.dp2px(top), ResUtil.dp2px(right), ResUtil.dp2px(bottom));
+    }
+
+    private void setMarginsPx(View view, int left, int top, int right, int bottom) {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        if (!(params instanceof ViewGroup.MarginLayoutParams marginParams)) return;
+        marginParams.setMargins(left, top, right, bottom);
+        view.setLayoutParams(marginParams);
+    }
+
+    private void setHeightDp(View view, int height) {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        params.height = ResUtil.dp2px(height);
+        view.setLayoutParams(params);
+    }
+
+    private void setWidthPx(View view, int width) {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        params.width = width;
+        view.setLayoutParams(params);
+    }
+
+    private void setWidthMatch(View view) {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+        view.setLayoutParams(params);
+    }
+
+    private Drawable colorDrawable(int color) {
+        return new android.graphics.drawable.ColorDrawable(color);
+    }
+
+    private Drawable cinemaBackdropShade() {
+        boolean compact = isCompactWidth();
+        GradientDrawable horizontal = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, compact ? new int[]{
+                0xEC090B0F, 0xD6090B0F, 0x78090B0F, 0x42090B0F, 0x96090B0F
+        } : new int[]{
+                0xF2090B0F, 0xDC090B0F, 0x82090B0F, 0x48090B0F, 0xA6090B0F
+        });
+        GradientDrawable vertical = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, compact ? new int[]{
+                0x10090B0F, 0x26090B0F, 0xA6090B0F, 0xE6090B0F
+        } : new int[]{
+                0x12090B0F, 0x2D090B0F, 0xB8090B0F, 0xF0090B0F
+        });
+        return new LayerDrawable(new Drawable[]{horizontal, vertical});
     }
 
     private void tintInlineControl(View view) {
@@ -1165,6 +1337,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             binding.overviewToggle.setVisibility(View.GONE);
             return;
         }
+        if (shouldShowFullOverview()) {
+            overviewExpanded = true;
+            binding.overviewToggle.setVisibility(View.GONE);
+            binding.overview.setMaxLines(Integer.MAX_VALUE);
+            binding.overview.setEllipsize(null);
+            return;
+        }
         applyOverviewState();
         binding.overview.post(() -> {
             if (isOverviewOverflowing()) {
@@ -1198,6 +1377,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.overview.setMaxLines(overviewExpanded ? Integer.MAX_VALUE : 5);
         binding.overview.setEllipsize(overviewExpanded ? null : TextUtils.TruncateAt.END);
         binding.overviewToggle.setText(overviewExpanded ? R.string.detail_collapse : R.string.detail_expand);
+    }
+
+    private boolean shouldShowFullOverview() {
+        return isCinemaMode();
     }
 
     private boolean isOverviewOverflowing() {
@@ -1345,7 +1528,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private int episodeSpanCount() {
         int width = getResources().getDisplayMetrics().widthPixels;
-        return Math.max(2, width / ResUtil.dp2px(isFusionMode() ? 190 : 220));
+        return Math.max(2, width / ResUtil.dp2px(isFusionMode() ? 190 : isCinemaMode() ? 180 : 220));
     }
 
     private Map<Episode, Integer> episodeNumbers(List<Episode> visibleEpisodes, List<Episode> allEpisodes) {
@@ -1630,8 +1813,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         ImageView image = new ImageView(this);
         image.setFocusable(true);
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int[] size = photoDialogSize();
-        image.setLayoutParams(new FrameLayout.LayoutParams(size[0], size[1]));
+        image.setBackgroundColor(0xFF000000);
+        image.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         ProgressBar progress = new ProgressBar(this);
         progress.setIndeterminate(true);
@@ -1640,14 +1823,22 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         progress.setLayoutParams(progressParams);
 
         FrameLayout content = new FrameLayout(this);
-        content.setLayoutParams(new ViewGroup.LayoutParams(size[0], size[1]));
+        content.setBackgroundColor(0xFF000000);
+        content.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         content.addView(image);
         content.addView(progress);
         int[] request = new int[]{0};
+        int[] photoOrientation = new int[]{ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED};
+        int originalOrientation = getRequestedOrientation();
+        boolean wasFullscreen = Util.isFullscreen(this);
 
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(content);
+        dialog.setOnDismissListener(instance -> {
+            setRequestedOrientation(originalOrientation);
+            if (!wasFullscreen) Util.toggleFullscreen(this, false);
+        });
         GestureDetector photoGesture = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onDown(MotionEvent event) {
@@ -1663,9 +1854,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 float x = event.getX();
                 int width = image.getWidth();
                 if (x < width * 0.33f) {
-                    showPhotoAt(image, progress, photos, current, request, -1);
+                    showPhotoAt(image, progress, photos, current, request, photoOrientation, -1);
                 } else if (x > width * 0.67f) {
-                    showPhotoAt(image, progress, photos, current, request, 1);
+                    showPhotoAt(image, progress, photos, current, request, photoOrientation, 1);
                 } else {
                     dialog.dismiss();
                 }
@@ -1677,7 +1868,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 if (photos.size() <= 1 || down == null || up == null) return false;
                 float distanceX = up.getX() - down.getX();
                 if (Math.abs(distanceX) < ResUtil.dp2px(48) || Math.abs(velocityX) < 120f) return false;
-                showPhotoAt(image, progress, photos, current, request, distanceX < 0 ? 1 : -1);
+                showPhotoAt(image, progress, photos, current, request, photoOrientation, distanceX < 0 ? 1 : -1);
                 return true;
             }
         });
@@ -1685,11 +1876,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         dialog.setOnKeyListener((instance, keyCode, event) -> {
             if (!KeyUtil.isActionUp(event)) return false;
             if (KeyUtil.isLeftKey(event)) {
-                showPhotoAt(image, progress, photos, current, request, -1);
+                showPhotoAt(image, progress, photos, current, request, photoOrientation, -1);
                 return true;
             }
             if (KeyUtil.isRightKey(event)) {
-                showPhotoAt(image, progress, photos, current, request, 1);
+                showPhotoAt(image, progress, photos, current, request, photoOrientation, 1);
                 return true;
             }
             if (KeyUtil.isEnterKey(event)) {
@@ -1701,25 +1892,26 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         dialog.show();
         Window window = dialog.getWindow();
         if (window != null) {
-            window.setBackgroundDrawableResource(android.R.color.transparent);
-            window.setLayout(size[0], size[1]);
+            window.setBackgroundDrawableResource(android.R.color.black);
+            window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            Util.hideSystemUI(window);
         }
         image.requestFocus();
-        loadPhotoImage(image, progress, photos.get(current[0]), request);
+        loadPhotoImage(image, progress, photos.get(current[0]), request, photoOrientation);
         preloadPhotoNeighbors(photos, current[0]);
     }
 
-    private void showPhotoAt(ImageView image, ProgressBar progress, List<String> photos, int[] current, int[] request, int direction) {
+    private void showPhotoAt(ImageView image, ProgressBar progress, List<String> photos, int[] current, int[] request, int[] photoOrientation, int direction) {
         if (photos.isEmpty()) return;
         int next = (current[0] + direction + photos.size()) % photos.size();
         if (next == current[0]) return;
         current[0] = next;
-        loadPhotoImage(image, progress, photos.get(current[0]), request);
+        loadPhotoImage(image, progress, photos.get(current[0]), request, photoOrientation);
         preloadPhotoNeighbors(photos, current[0]);
     }
 
-    private void loadPhotoImage(ImageView image, ProgressBar progress, String url, int[] request) {
+    private void loadPhotoImage(ImageView image, ProgressBar progress, String url, int[] request, int[] photoOrientation) {
         int token = ++request[0];
         progress.setVisibility(View.VISIBLE);
         try {
@@ -1732,6 +1924,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                             if (token != request[0]) return;
                             image.setImageDrawable(resource);
                             progress.setVisibility(View.GONE);
+                            applyPhotoOrientation(resource, photoOrientation);
                         }
 
                         @Override
@@ -1767,16 +1960,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
     }
 
-    private int[] photoDialogSize() {
-        int maxWidth = (int) (ResUtil.getScreenWidth(this) * 0.92f);
-        int maxHeight = (int) (ResUtil.getScreenHeight(this) * 0.82f);
-        int width = maxWidth;
-        int height = Math.round(width * 9f / 16f);
-        if (height > maxHeight) {
-            height = maxHeight;
-            width = Math.round(height * 16f / 9f);
-        }
-        return new int[]{width, height};
+    private void applyPhotoOrientation(Drawable resource, int[] photoOrientation) {
+        if (!Util.isMobile() || resource == null) return;
+        int width = resource.getIntrinsicWidth();
+        int height = resource.getIntrinsicHeight();
+        if (width <= 0 || height <= 0) return;
+        int target = width >= height ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT;
+        if (photoOrientation[0] == target) return;
+        photoOrientation[0] = target;
+        setRequestedOrientation(target);
     }
 
     private String highResTmdbImage(String url) {
@@ -1911,7 +2103,22 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private boolean isFusionMode() {
-        return getIntent().getBooleanExtra("fusion", false);
+        return getDetailMode() == Setting.DETAIL_OPEN_FUSION || getIntent().getBooleanExtra("fusion", false);
+    }
+
+    private boolean isCinemaMode() {
+        return getDetailMode() == Setting.DETAIL_OPEN_CINEMA;
+    }
+
+    private int getDetailMode() {
+        if (getIntent().hasExtra("detail_mode")) return normalizeDetailMode(getIntent().getIntExtra("detail_mode", Setting.DETAIL_OPEN_ENHANCED));
+        return getIntent().getBooleanExtra("fusion", false) ? Setting.DETAIL_OPEN_FUSION : Setting.DETAIL_OPEN_ENHANCED;
+    }
+
+    private int detailModeTitle() {
+        if (isFusionMode()) return R.string.setting_detail_open_fusion;
+        if (isCinemaMode()) return R.string.setting_detail_open_cinema;
+        return R.string.setting_detail_open_enhanced;
     }
 
     private boolean isAutoPlayMode() {
@@ -2826,7 +3033,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             Notify.show(getString(R.string.detail_tmdb_need_key));
             return;
         }
-        TmdbPersonActivity.start(this, person, getKeyText());
+        TmdbPersonActivity.start(this, person, getKeyText(), getDetailMode());
     }
 
     private void openRelatedItem(TmdbItem item) {
@@ -2855,7 +3062,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             return;
         }
         Intent intent = new Intent(this, TmdbDetailActivity.class);
-        intent.putExtra("fusion", false);
+        int detailMode = getDetailMode();
+        intent.putExtra("detail_mode", detailMode);
+        intent.putExtra("fusion", detailMode == Setting.DETAIL_OPEN_FUSION);
         intent.putExtra("key", site.getKey());
         intent.putExtra("id", match.getId());
         intent.putExtra("name", match.getName());
@@ -2872,6 +3081,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void switchSourceDetail(Site site, Vod match, TmdbItem item, String mark) {
         TmdbBundle reusableBundle = canReuseTmdbBundle(item) ? activeTmdbBundle : null;
         Intent intent = new Intent(getIntent());
+        intent.putExtra("detail_mode", getDetailMode());
         intent.putExtra("fusion", isFusionMode());
         intent.putExtra("key", site.getKey());
         intent.putExtra("id", match.getId());
@@ -3655,6 +3865,25 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                     0xFF1D8F5A,
                     0xFF20B866,
                     0x4DF7FAFC
+            );
+        }
+
+        static ThemeColors cinema() {
+            return new ThemeColors(
+                    0xFF090B0F,
+                    0xC914171C,
+                    0xFF252A32,
+                    0x40252A32,
+                    0x664B8F72,
+                    0x24FFFFFF,
+                    0x42FFFFFF,
+                    0xFFFFFFFF,
+                    0xD9FFFFFF,
+                    0x99FFFFFF,
+                    0xE6FFFFFF,
+                    0xFF8FE7B6,
+                    0xFF2DBA76,
+                    0xB3090B0F
             );
         }
     }
