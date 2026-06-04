@@ -45,10 +45,11 @@
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/size"
+                style="@style/Shadow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:background="@drawable/shape_widget"
+                android:background="@null"
                 android:fontFeatureSettings="tnum"
                 android:textColor="@color/white"
                 android:textSize="12sp"

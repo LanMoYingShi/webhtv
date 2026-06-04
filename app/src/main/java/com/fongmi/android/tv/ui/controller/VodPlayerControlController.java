@@ -4,6 +4,7 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.TextView;
 
+import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
@@ -59,6 +60,12 @@ public class VodPlayerControlController {
 
     public void updateSize(TextView view, boolean visibleArea) {
         String size = hasPlayer() ? player().getSizeText() : "";
+        if (view.getId() == R.id.size || view.getId() == R.id.playerSize) {
+            view.setBackground(null);
+        }
+        if (view.getId() == R.id.size) {
+            view.setPadding(0, 0, 0, 0);
+        }
         view.setText(size);
         view.setVisibility(visibleArea && PlayerSetting.isDisplaySize() && !TextUtils.isEmpty(size) ? View.VISIBLE : View.GONE);
     }
