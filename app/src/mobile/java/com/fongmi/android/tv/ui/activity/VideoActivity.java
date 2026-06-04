@@ -10,6 +10,7 @@ import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.style.ClickableSpan;
@@ -140,6 +141,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean useParse;
     private boolean rotate;
     private boolean keepChanged;
+    private long lastControlInteraction;
     private Runnable mR1;
     private Runnable mR2;
     private Runnable mR3;
@@ -360,7 +362,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mObserveSearch = this::onSearchChanged;
         mBroken = new ArrayList<>();
         mClock = Clock.create();
-        mR1 = this::hideControl;
+        mR1 = this::hideControlIfIdle;
         mR2 = this::setTraffic;
         mR3 = this::setOrient;
         mR4 = this::showEmpty;
@@ -427,7 +429,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.scale.setOnClickListener(view -> onScale());
         mBinding.control.action.speed.setOnClickListener(view -> onSpeed());
         mBinding.control.action.reset.setOnClickListener(view -> onReset());
-        mBinding.control.action.title.setOnClickListener(view -> onTitle());
+        mBinding.control.action.chapter.setOnClickListener(view -> onTitle());
         mBinding.control.action.player.setOnClickListener(view -> onChoose());
         mBinding.control.action.player.setOnLongClickListener(view -> onPlayerInfo());
         mBinding.control.action.decode.setOnClickListener(view -> onDecode());
@@ -1208,7 +1210,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
         updateDisplayStatus(System.currentTimeMillis());
         updateMiniProgress();
-        setR1Callback();
+        touchControl();
     }
 
     private void hideControl() {
@@ -1216,6 +1218,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         updateDisplayStatus(System.currentTimeMillis());
         updateMiniProgress();
         App.removeCallbacks(mR1);
+    }
+
+    private void hideControlIfIdle() {
+        long idle = SystemClock.uptimeMillis() - lastControlInteraction;
+        if (idle < Constant.INTERVAL_HIDE) {
+            App.post(mR1, Constant.INTERVAL_HIDE - idle);
+            return;
+        }
+        hideControl();
     }
 
     private void hideSheet() {
@@ -1276,6 +1287,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setR1Callback() {
+        touchControl();
+    }
+
+    private void touchControl() {
+        lastControlInteraction = SystemClock.uptimeMillis();
+        App.removeCallbacks(mR1);
         App.post(mR1, Constant.INTERVAL_HIDE);
     }
 
@@ -1624,7 +1641,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setTitleVisible() {
-        mBinding.control.action.title.setVisibility(player().haveTitle() ? View.VISIBLE : View.GONE);
+        mBinding.control.action.chapter.setVisibility(player().haveTitle() ? View.VISIBLE : View.GONE);
     }
 
     private MediaMetadata buildMetadata() {
@@ -1918,6 +1935,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (isRedirect()) return;
         if (isLock()) App.post(this::onLock, 500);
         if (service() != null && player().haveTrack(C.TRACK_TYPE_VIDEO)) mPiP.enter(this, player().getVideoWidth(), player().getVideoHeight(), getScale());
+    }
+
+    @Override
+    public void onUserInteraction() {
+        super.onUserInteraction();
+        if (mBinding != null && isVisible(mBinding.control.getRoot())) setR1Callback();
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (mBinding != null && isVisible(mBinding.control.getRoot())) setR1Callback();
+        return super.dispatchTouchEvent(ev);
     }
 
     @Override

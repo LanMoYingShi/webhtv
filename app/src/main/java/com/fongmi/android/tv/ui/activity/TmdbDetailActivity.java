@@ -10,6 +10,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.GestureDetector;
 import android.view.KeyEvent;
@@ -167,7 +168,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private GestureDetector inlineGestureDetector;
     private Clock inlineClock;
     private VodPlayerControlController inlineControlController;
-    private final Runnable inlineHideControls = this::hideInlineControls;
+    private final Runnable inlineHideControls = this::hideInlineControlsIfIdle;
     private Result pendingInlineResult;
     private Result currentInlineResult;
     private ViewGroup playerParent;
@@ -175,6 +176,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private View detailControlRoot;
     private View detailActionRoot;
     private View inlineControlFocus;
+    private long lastInlineControlInteraction;
     private boolean inlineWakeControlsByKey;
     private int selectedSeasonNumber = -1;
     private int playerIndex = -1;
@@ -497,7 +499,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerFullscreen.setOnClickListener(view -> toggleInlineFullscreen());
         binding.playerCast.setOnClickListener(view -> onInlineCast());
         binding.playerInfo.setOnClickListener(view -> onInlineInfo());
-        binding.playerControls.setOnTouchListener(this::onInlineTouch);
+        binding.playerControls.setOnTouchListener(this::onInlineControlTouch);
         setupMobileInlineControl();
         hideInlineControls();
         updateInlineButtons(false);
@@ -527,7 +529,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailActionView(R.id.speed, View.class).setOnClickListener(view -> changeInlineSpeed());
         detailActionView(R.id.speed, View.class).setOnLongClickListener(view -> resetInlineSpeed());
         detailActionView(R.id.scale, View.class).setOnClickListener(view -> cycleInlineScale());
-        detailActionView(R.id.quality, View.class).setOnClickListener(view -> showInlineQuality());
+        detailActionView(R.id.actionQuality, View.class).setOnClickListener(view -> showInlineQuality());
         detailActionView(R.id.reset, View.class).setOnClickListener(view -> refreshInlinePlayback());
         detailActionView(R.id.repeat, View.class).setOnClickListener(view -> toggleInlineRepeat());
         detailActionView(R.id.text, View.class).setOnClickListener(this::showInlineTrack);
@@ -538,8 +540,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailActionView(R.id.episodes, View.class).setOnClickListener(view -> showInlineEpisodes());
         detailActionView(R.id.opening, View.class).setVisibility(View.GONE);
         detailActionView(R.id.ending, View.class).setVisibility(View.GONE);
-        detailActionView(R.id.title, View.class).setVisibility(View.GONE);
-        detailControlRoot.setOnTouchListener(this::onInlineTouch);
+        detailActionView(R.id.chapter, View.class).setVisibility(View.GONE);
+        detailControlRoot.setOnTouchListener(this::onInlineControlTouch);
     }
 
     private void inflateMobileInlineControl() {
@@ -625,6 +627,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private boolean onInlineTouch(View view, MotionEvent event) {
         if (inlineGestureDetector != null) inlineGestureDetector.onTouchEvent(event);
         return true;
+    }
+
+    private boolean onInlineControlTouch(View view, MotionEvent event) {
+        if (isInlineControlsVisible()) touchInlineControls();
+        return false;
     }
 
     private boolean onInlinePanelKey(View view, int keyCode, KeyEvent event) {
@@ -2231,7 +2238,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
         inlineControlsView().setVisibility(View.VISIBLE);
         if (focus) focusInlineDefaultControl();
-        setInlineHideCallback();
+        touchInlineControls();
         updateInlineDisplayPanel();
     }
 
@@ -2244,7 +2251,21 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         updateInlineDisplayPanel();
     }
 
+    private void hideInlineControlsIfIdle() {
+        long idle = SystemClock.uptimeMillis() - lastInlineControlInteraction;
+        if (idle < Constant.INTERVAL_HIDE) {
+            App.post(inlineHideControls, Constant.INTERVAL_HIDE - idle);
+            return;
+        }
+        hideInlineControls();
+    }
+
     private void setInlineHideCallback() {
+        touchInlineControls();
+    }
+
+    private void touchInlineControls() {
+        lastInlineControlInteraction = SystemClock.uptimeMillis();
         App.removeCallbacks(inlineHideControls);
         App.post(inlineHideControls, Constant.INTERVAL_HIDE);
     }
@@ -2345,7 +2366,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailActionView(R.id.player, TextView.class).setText(binding.playerExternal.getText());
         detailActionView(R.id.decode, TextView.class).setText(binding.playerDecode.getText());
         detailActionView(R.id.scale, TextView.class).setText(binding.playerScale.getText());
-        detailActionView(R.id.quality, TextView.class).setText(binding.playerQuality.getText());
+        detailActionView(R.id.actionQuality, TextView.class).setText(binding.playerQuality.getText());
         setButtonEnabled(detailControlView(R.id.prev, View.class), hasPrev);
         setButtonEnabled(detailControlView(R.id.next, View.class), hasNext);
         setButtonEnabled(detailControlView(R.id.fullscreen, View.class), hasPlayer);
@@ -2356,7 +2377,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setButtonEnabled(detailActionView(R.id.scale, View.class), hasPlayer);
         boolean inlineQuality = canChangeInlineQuality();
         boolean inlineVideoTrackAsQuality = isInlineVideoTrackAsQuality();
-        setButtonEnabled(detailActionView(R.id.quality, View.class), inlineQuality);
+        setButtonEnabled(detailActionView(R.id.actionQuality, View.class), inlineQuality);
         setButtonEnabled(detailActionView(R.id.reset, View.class), hasPlayer);
         setButtonEnabled(detailActionView(R.id.repeat, View.class), hasPlayer);
         setButtonEnabled(detailActionView(R.id.text, View.class), hasPlayer);
@@ -2374,7 +2395,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailActionView(R.id.audio, View.class).setVisibility(hasPlayer && player().haveTrack(C.TRACK_TYPE_AUDIO) ? View.VISIBLE : View.GONE);
         detailActionView(R.id.video, View.class).setVisibility(hasPlayer && player().haveTrack(C.TRACK_TYPE_VIDEO) && !inlineVideoTrackAsQuality ? View.VISIBLE : View.GONE);
         detailActionView(R.id.danmaku, View.class).setVisibility(hasPlayer && inlineControlController.hasDanmakuControl() ? View.VISIBLE : View.GONE);
-        detailActionView(R.id.quality, View.class).setVisibility(inlineQuality ? View.VISIBLE : View.GONE);
+        detailActionView(R.id.actionQuality, View.class).setVisibility(inlineQuality ? View.VISIBLE : View.GONE);
         detailActionView(R.id.repeat, View.class).setSelected(hasPlayer && player().isRepeatOne());
         action.setVisibility(inlineFullscreen ? View.VISIBLE : View.GONE);
         inlineControlController.updateDanmakuState();
@@ -2816,6 +2837,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         String episode = selectedEpisode != null ? historyEpisodeTitle(selectedEpisode) : "";
         String artist = TextUtils.isEmpty(episode) || title.equals(episode) ? "" : episode;
         return new MediaMetadata.Builder().setTitle(title).setArtist(artist).setArtworkUri(android.net.Uri.parse(playbackHistoryPic())).build();
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (binding != null && isInlineControlsVisible()) touchInlineControls();
+        return super.dispatchTouchEvent(event);
     }
 
     @Override

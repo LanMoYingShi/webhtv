@@ -103,7 +103,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.text.setOnClickListener(v -> dismiss(parent.control.action.text));
         binding.audio.setOnClickListener(v -> dismiss(parent.control.action.audio));
         binding.video.setOnClickListener(v -> dismiss(parent.control.action.video));
-        binding.title.setOnClickListener(v -> dismiss(parent.control.action.title));
+        binding.title.setOnClickListener(v -> dismiss(parent.control.action.chapter));
         binding.player.setOnClickListener(v -> dismiss(parent.control.action.player));
         binding.danmaku.setOnClickListener(v -> dismiss(parent.control.action.danmaku));
         binding.repeat.setOnClickListener(v -> active(binding.repeat, parent.control.action.repeat));
@@ -216,7 +216,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     }
 
     public void setTitleVisible() {
-        binding.title.setVisibility(parent.control.action.title.getVisibility());
+        binding.title.setVisibility(parent.control.action.chapter.getVisibility());
     }
 
     @Override

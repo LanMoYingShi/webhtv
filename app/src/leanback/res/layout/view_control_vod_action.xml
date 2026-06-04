@@ -110,7 +110,7 @@
             tools:visibility="visible" />
 
         <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/title"
+            android:id="@+id/chapter"
             style="@style/Control"
             android:layout_marginEnd="12dp"
             android:text="@string/play_title"

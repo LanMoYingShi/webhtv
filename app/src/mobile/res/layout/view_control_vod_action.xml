@@ -35,7 +35,7 @@
             android:text="@string/play_scale" />
 
         <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/quality"
+            android:id="@+id/actionQuality"
             style="@style/Control"
             android:text="@string/detail_quality"
             android:visibility="gone"
@@ -92,7 +92,7 @@
             tools:visibility="visible" />
 
         <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/title"
+            android:id="@+id/chapter"
             style="@style/Control"
             android:text="@string/play_title"
             android:visibility="gone"
