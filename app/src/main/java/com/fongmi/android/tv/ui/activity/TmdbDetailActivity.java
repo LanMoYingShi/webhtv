@@ -490,7 +490,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerExternal.setOnClickListener(view -> toggleInlinePlayer());
         binding.playerExternal.setOnLongClickListener(view -> inlineControlController.showPlayerInfo());
         binding.playerEpisodes.setOnClickListener(view -> showInlineEpisodes());
+        binding.playerFullscreenAction.setOnClickListener(view -> toggleInlineFullscreen());
         binding.playerFullscreen.setOnClickListener(view -> toggleInlineFullscreen());
+        binding.playerFullscreen.setFocusable(false);
+        binding.playerFullscreen.setFocusableInTouchMode(false);
+        if (!Util.isMobile()) binding.playerFullscreen.setVisibility(View.GONE);
         binding.playerCast.setOnClickListener(view -> onInlineCast());
         binding.playerInfo.setOnClickListener(view -> onInlineInfo());
         binding.playerControls.setOnTouchListener(this::onInlineControlTouch);
@@ -568,21 +572,22 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (Util.isMobile()) return;
         View timeBar = inlineSeek().findViewById(R.id.timeBar);
         if (timeBar != null) {
-            timeBar.setNextFocusUpId(R.id.playerExternal);
-            timeBar.setNextFocusRightId(R.id.playerFullscreen);
+            timeBar.setNextFocusUpId(R.id.playerFullscreenAction);
+            timeBar.setNextFocusRightId(R.id.timeBar);
         }
-        binding.playerFullscreen.setNextFocusLeftId(R.id.timeBar);
-        binding.playerFullscreen.setNextFocusUpId(R.id.playerEpisodes);
-        binding.playerExternal.setNextFocusUpId(R.id.playerFullscreen);
-        binding.playerDecode.setNextFocusUpId(R.id.playerFullscreen);
-        binding.playerDisplay.setNextFocusUpId(R.id.playerFullscreen);
-        binding.playerEpisodes.setNextFocusUpId(R.id.playerFullscreen);
+        binding.playerFullscreenAction.setNextFocusLeftId(R.id.playerEpisodes);
+        binding.playerFullscreenAction.setNextFocusDownId(R.id.timeBar);
+        binding.playerEpisodes.setNextFocusRightId(R.id.playerFullscreenAction);
+        binding.playerExternal.setNextFocusUpId(R.id.playerFullscreenAction);
+        binding.playerDecode.setNextFocusUpId(R.id.playerFullscreenAction);
+        binding.playerDisplay.setNextFocusUpId(R.id.playerFullscreenAction);
+        binding.playerEpisodes.setNextFocusUpId(R.id.playerFullscreenAction);
     }
 
     private void setupInlineControlFocus() {
         setupInlineControl(binding.playerCast);
         setupInlineControl(binding.playerInfo);
-        setupInlineControl(binding.playerFullscreen);
+        setupInlineControl(binding.playerFullscreenAction);
         setupInlineControl(binding.playerPrev);
         setupInlineControl(binding.playerNext);
         setupInlineControl(binding.playerExternal);
@@ -742,7 +747,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         } else if (inlineFullscreen) {
             toggleInlinePlayback();
         } else {
-            showInlineControls(true, false);
+            showInlineControls(true);
         }
     }
 
@@ -2403,7 +2408,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private View getInlineControlFocus() {
         if (inlineControlFocus != null && isVisibleInHierarchy(inlineControlFocus) && inlineControlFocus.isEnabled()) return inlineControlFocus;
         if (Util.isMobile()) return detailControlView(R.id.play, View.class);
-        return binding.playerExternal;
+        return binding.playerFullscreenAction;
     }
 
     private void rememberInlineControlFocus() {
@@ -2470,6 +2475,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setButtonEnabled(binding.playerEpisodes, selectedFlag != null && selectedFlag.getEpisodes() != null && !selectedFlag.getEpisodes().isEmpty());
         setButtonEnabled(binding.playerCast, hasPlayer && hasInlineCast());
         setButtonEnabled(binding.playerInfo, hasPlayer && hasInlineInfo());
+        setButtonEnabled(binding.playerFullscreenAction, hasPlayer);
         setButtonEnabled(binding.playerFullscreen, hasPlayer);
         binding.playerCast.setVisibility(hasInlineCast() ? View.VISIBLE : View.GONE);
         binding.playerInfo.setVisibility(hasInlineInfo() ? View.VISIBLE : View.GONE);
@@ -2579,6 +2585,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void setInlineFullscreenIcon() {
+        binding.playerFullscreenAction.setText(inlineFullscreen ? R.string.play_exit_fullscreen : R.string.play_fullscreen);
         binding.playerFullscreen.setImageResource(inlineFullscreen ? R.drawable.ic_control_fullscreen_exit : R.drawable.ic_control_fullscreen);
         if (Util.isMobile()) detailControlView(R.id.fullscreen, ImageView.class).setImageResource(inlineFullscreen ? R.drawable.ic_control_fullscreen_exit : R.drawable.ic_control_fullscreen);
     }
