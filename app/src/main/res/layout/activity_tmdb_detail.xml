@@ -51,7 +51,8 @@
                 android:orientation="horizontal"
                 android:paddingStart="16dp"
                 android:paddingTop="16dp"
-                android:paddingEnd="16dp">
+                android:paddingEnd="16dp"
+                android:visibility="gone">
 
                 <TextView
                     android:id="@+id/headerTitle"
@@ -61,19 +62,6 @@
                     android:textColor="@android:color/white"
                     android:textSize="17sp"
                     android:textStyle="bold" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/themeMode"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minHeight="40dp"
-                    android:minWidth="72dp"
-                    android:textColor="@android:color/white"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    app:backgroundTint="#3A4652"
-                    app:strokeColor="@android:color/transparent" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/rematchTop"
@@ -641,6 +629,20 @@
                     app:strokeColor="@android:color/transparent" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/themeMode"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:minHeight="42dp"
+                    android:minWidth="76dp"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="#3A4652"
+                    app:strokeColor="@android:color/transparent" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/rematchFusion"
                     style="?attr/materialButtonOutlinedStyle"
                     android:layout_width="wrap_content"
@@ -826,6 +828,26 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/keep"
+                                style="?attr/materialButtonOutlinedStyle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:includeFontPadding="false"
+                                android:maxLines="1"
+                                android:minHeight="42dp"
+                                android:minWidth="0dp"
+                                android:paddingStart="0dp"
+                                android:paddingEnd="0dp"
+                                android:singleLine="true"
+                                android:textColor="@android:color/white"
+                                android:textSize="13sp"
+                                app:backgroundTint="#2B3743"
+                                app:strokeColor="@android:color/transparent" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/themeModeDetail"
                                 style="?attr/materialButtonOutlinedStyle"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"

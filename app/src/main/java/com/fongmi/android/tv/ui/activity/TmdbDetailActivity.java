@@ -370,6 +370,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.changeSource.setOnLongClickListener(view -> openGlobalSourceSearch());
         binding.changeSourceDetail.setOnLongClickListener(view -> openGlobalSourceSearch());
         binding.themeMode.setOnClickListener(view -> cycleThemeMode());
+        binding.themeModeDetail.setOnClickListener(view -> cycleThemeMode());
         binding.episodeReverse.setOnClickListener(view -> toggleEpisodeReverse());
         binding.episodeViewMode.setOnClickListener(view -> toggleEpisodeViewMode());
         binding.overview.setOnClickListener(view -> toggleOverview());
@@ -782,6 +783,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setButton(binding.changeSource, colors.control, colors.line, colors.primary);
         setButton(binding.changeSourceDetail, colors.control, colors.line, colors.primary);
         setButton(binding.themeMode, colors.control, colors.line, colors.primary);
+        setButton(binding.themeModeDetail, colors.control, colors.line, colors.primary);
         setButton(binding.episodeReverse, colors.control, colors.line, colors.primary);
         setButton(binding.episodeViewMode, colors.control, colors.line, colors.primary);
         setButton(binding.play, colors.play, colors.play, 0xFFFFFFFF);
@@ -794,6 +796,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.episodeEmpty.setTextColor(colors.secondary);
         binding.tmdbStatus.setTextColor(colors.secondary);
         binding.themeMode.setText(themeModeLabel());
+        binding.themeModeDetail.setText(themeModeLabel());
         tintInlineGestureOverlay();
         if (isInlinePlayerMode()) {
             binding.playerError.setTextColor(0xFFFFFFFF);
