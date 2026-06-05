@@ -181,7 +181,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private View inlineControlFocus;
     private long lastInlineControlInteraction;
     private float inlineGestureSpeed = 1.0f;
-    private boolean inlineWakeControlsByKey;
     private boolean inlineStartPositionApplied;
     private int selectedSeasonNumber = -1;
     private int playerIndex = -1;
@@ -696,7 +695,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     public void onSingleTap() {
         if (!inlineStarted) onPlay();
-        else if (!inlineFullscreen) enterInlineFullscreen();
         else toggleInlineControls();
     }
 
@@ -739,10 +737,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (!isInlinePlayerMode()) return;
         if (!inlineStarted) {
             onPlay();
-        } else if (!inlineFullscreen) {
-            enterInlineFullscreen();
         } else if (isInlineControlsVisible()) {
             hideInlineControls();
+        } else if (inlineFullscreen) {
+            toggleInlinePlayback();
         } else {
             showInlineControls(true, false);
         }
@@ -2373,6 +2371,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void hideInlineControlsIfIdle() {
+        if (!Util.isMobile() && hasFocusedChild(inlineControlsView())) {
+            App.post(inlineHideControls, Constant.INTERVAL_HIDE);
+            return;
+        }
         long idle = SystemClock.uptimeMillis() - lastInlineControlInteraction;
         if (idle < Constant.INTERVAL_HIDE) {
             App.post(inlineHideControls, Constant.INTERVAL_HIDE - idle);
@@ -2398,14 +2400,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         });
     }
 
-    private void focusInlinePlaybackControl() {
-        getInlineControlFocus().post(() -> {
-            if (isInlineControlsVisible()) getInlineControlFocus().requestFocus();
-        });
-    }
-
     private View getInlineControlFocus() {
-        if (inlineControlFocus != null && inlineControlFocus.getVisibility() == View.VISIBLE && inlineControlFocus.isEnabled()) return inlineControlFocus;
+        if (inlineControlFocus != null && isVisibleInHierarchy(inlineControlFocus) && inlineControlFocus.isEnabled()) return inlineControlFocus;
         if (Util.isMobile()) return detailControlView(R.id.play, View.class);
         return binding.playerExternal;
     }
@@ -2413,6 +2409,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void rememberInlineControlFocus() {
         View focus = getCurrentFocus();
         if (focus != null && isDescendant((ViewGroup) inlineControlsView(), focus)) inlineControlFocus = focus;
+    }
+
+    private boolean isVisibleInHierarchy(View view) {
+        for (View current = view; current != null; current = current.getParent() instanceof View parent ? parent : null) {
+            if (current.getVisibility() != View.VISIBLE) return false;
+        }
+        return true;
     }
 
     private boolean isDescendant(ViewGroup parent, View child) {
@@ -3045,12 +3048,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private boolean handleInlineKey(KeyEvent event) {
         if (!isInlinePlayerMode() || !inlineStarted) return false;
-        if (KeyUtil.isEnterKey(event) && inlineWakeControlsByKey) {
-            if (KeyUtil.isActionUp(event)) {
-                inlineWakeControlsByKey = false;
-                showInlineControls(true, false);
-                focusInlinePlaybackControl();
-            }
+        if (KeyUtil.isBackKey(event) && isInlineControlsVisible()) {
+            if (KeyUtil.isActionUp(event)) hideInlineControls();
             return true;
         }
         if (isInlineControlsVisible()) {
@@ -3063,9 +3062,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             return true;
         }
         if (KeyUtil.isEnterKey(event)) {
-            if (KeyUtil.isActionDown(event)) {
-                inlineWakeControlsByKey = true;
-            }
+            if (KeyUtil.isActionUp(event)) toggleInlinePlayback();
             return true;
         }
         if (!KeyUtil.isActionUp(event)) return false;
@@ -3169,6 +3166,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     @Override
     protected void onBackInvoked() {
+        if (isInlineControlsVisible()) {
+            hideInlineControls();
+            return;
+        }
         if (inlineFullscreen) {
             exitInlineFullscreen();
             return;
