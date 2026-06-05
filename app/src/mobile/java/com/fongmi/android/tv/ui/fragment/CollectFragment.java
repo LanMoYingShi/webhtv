@@ -113,6 +113,7 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         mBinding.collect.setItemAnimator(null);
         mBinding.collect.setHasFixedSize(true);
         mBinding.collect.setAdapter(mCollectAdapter = new CollectAdapter(this, isHorizontalUi()));
+        mBinding.recycler.setItemAnimator(null);
         mBinding.recycler.setHasFixedSize(true);
         mBinding.recycler.addOnScrollListener(mScroller);
         mBinding.recycler.setAdapter(mSearchAdapter = new SearchAdapter(this));
@@ -183,13 +184,22 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         mCollectAdapter.setHorizontal(isHorizontalUi());
         setCollectLayout();
         mBinding.collect.post(() -> mBinding.collect.scrollToPosition(position));
+        mBinding.recycler.post(() -> {
+            mBinding.recycler.requestLayout();
+            mSearchAdapter.notifyDataSetChanged();
+        });
         requireActivity().invalidateOptionsMenu();
     }
 
     private void setSearchColumn() {
         int column = Setting.getSearchColumn();
         int length = getResources().getStringArray(R.array.select_search_column).length;
-        Setting.putSearchColumn((column + 1) % length);
+        int current = getCount(column);
+        for (int i = 0; i < length; i++) {
+            column = (column + 1) % length;
+            if (getCount(column) != current) break;
+        }
+        Setting.putSearchColumn(column);
         updateSpanCount();
         mBinding.recycler.post(() -> mBinding.recycler.scrollToPosition(0));
         requireActivity().invalidateOptionsMenu();
@@ -204,12 +214,18 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     }
 
     private int getCount() {
-        if (Setting.getSearchColumn() > 0) return Setting.getSearchColumn();
+        return getCount(Setting.getSearchColumn());
+    }
+
+    private int getCount(int column) {
+        if (column > 0) return column;
         return ResUtil.isLand(requireActivity()) || ResUtil.isPad() ? 3 : 1;
     }
 
     private void updateSpanCount() {
-        ((GridLayoutManager) (mBinding.recycler.getLayoutManager())).setSpanCount(getCount());
+        int count = getCount();
+        ((GridLayoutManager) (mBinding.recycler.getLayoutManager())).setSpanCount(count);
+        mSearchAdapter.setColumnCount(count);
     }
 
     private void setCollect(Result result) {

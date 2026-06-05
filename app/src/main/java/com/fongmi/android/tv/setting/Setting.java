@@ -162,7 +162,7 @@ public class Setting {
     }
 
     private static int clampSearchColumn(int column) {
-        return column == 1 ? 1 : 0;
+        return column < 0 || column > 2 ? 0 : column;
     }
 
     public static boolean isDebugLog() {

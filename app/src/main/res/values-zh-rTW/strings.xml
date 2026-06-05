@@ -396,6 +396,7 @@
     <string-array name="select_search_column">
         <item>自適應</item>
         <item>1個</item>
+        <item>2個</item>
     </string-array>
 
     <string-array name="select_scale">
