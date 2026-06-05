@@ -2557,7 +2557,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         boolean showTitle = canShow && PlayerSetting.isDisplayTitle() && !TextUtils.isEmpty(inlineTitleText());
         boolean showSize = canShow && PlayerSetting.isDisplaySize() && !TextUtils.isEmpty(player().getSizeText());
         boolean showProgress = canShow && PlayerSetting.isDisplayProgress() && player().getDuration() > 0;
-        boolean showMini = canShow && PlayerSetting.isDisplayMini() && player().getDuration() > 0;
+        boolean showMini = !showProgress && canShow && PlayerSetting.isDisplayMini() && player().getDuration() > 0;
         binding.playerDisplayTitle.setText(inlineTitleText());
         binding.playerDisplaySize.setText(showSize ? player().getSizeText() : "");
         tintInlineDisplay();

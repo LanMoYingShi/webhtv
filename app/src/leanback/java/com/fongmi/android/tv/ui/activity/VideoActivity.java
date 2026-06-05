@@ -1104,7 +1104,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         boolean showTitle = canShow && PlayerSetting.isDisplayTitle() && !TextUtils.isEmpty(mBinding.widget.title.getText());
         boolean showSize = canShow && PlayerSetting.isDisplaySize() && !TextUtils.isEmpty(player().getSizeText());
         boolean showProgress = canShow && PlayerSetting.isDisplayProgress() && player().getDuration() > 0;
-        boolean showMini = canShow && PlayerSetting.isDisplayMini() && player().getDuration() > 0;
+        boolean showMini = !showProgress && canShow && PlayerSetting.isDisplayMini() && player().getDuration() > 0;
         mBinding.widget.displayTitle.setText(mBinding.widget.title.getText());
         mBinding.widget.displaySize.setText(showSize ? player().getSizeText() : "");
         mBinding.widget.displayTitle.setVisibility(showTitle ? View.VISIBLE : View.GONE);

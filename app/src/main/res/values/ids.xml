@@ -2,6 +2,7 @@
 <resources>
     <item name="back" type="id" />
     <item name="cast" type="id" />
+    <item name="fullscreen" type="id" />
     <item name="actionQuality" type="id" />
     <item name="episodes" type="id" />
 </resources>
