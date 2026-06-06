@@ -192,6 +192,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private long inlineKeySeekTime;
     private float inlineGestureSpeed = 1.0f;
     private boolean inlineStartPositionApplied;
+    private long inlineStartPosition = C.TIME_UNSET;
     private int selectedSeasonNumber = -1;
     private int playerIndex = -1;
     private int requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
@@ -338,6 +339,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineStarted = false;
         detailPlayerActive = false;
         autoPlayed = false;
+        inlineStartPosition = C.TIME_UNSET;
         pendingInlineResult = null;
         currentInlineResult = null;
         activeTmdbBundle = null;
@@ -1852,6 +1854,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void onPlay() {
         if (vod == null) return;
+        saveInlineHistory();
         persistSelection();
         if (isFusionMode()) playInline();
         else playDetailFullscreen();
@@ -2190,7 +2193,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private boolean isHistoryEpisode(Episode episode, History item) {
         if (episode == null || item == null) return false;
         if (!TextUtils.isEmpty(item.getEpisodeUrl()) && item.getEpisodeUrl().equals(episode.getUrl())) return true;
-        return episode.getName().equals(item.getVodRemarks()) || historyEpisodeTitle(episode).equals(item.getVodRemarks());
+        return episode.matchesName(item.getEpisode()) || episode.getDisplayName().equals(item.getVodRemarks()) || historyEpisodeTitle(episode).equals(item.getVodRemarks());
     }
 
     private String historyEpisodeTitle(Episode episode) {
@@ -2291,7 +2294,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void playInline() {
         if (selectedFlag == null || selectedEpisode == null) return;
-        saveInlineHistory();
         binding.playerError.setVisibility(View.GONE);
         binding.playerProgress.setVisibility(View.VISIBLE);
         updateInlineDisplayPanel();
@@ -2327,6 +2329,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         updateInlineButtons(false);
         player().stop();
         player().clear();
+        inlineStartPosition = getInlineResumePosition();
         inlineStartPositionApplied = false;
         player().switchPlayer(history == null ? PlayerSetting.getPlayer() : history.getPlayerOrDefault());
         updateInlineHistoryPlayer();
@@ -3450,13 +3453,27 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     protected void onPrepare() {
         setInlineScale(getInlineScale());
+        prepareInlineStartPosition();
         if (history != null && service() != null && !player().isEmpty()) binding.playerSpeed.setText(player().setSpeed(history.getSpeed()));
+    }
+
+    private long getInlineResumePosition() {
+        return history == null ? C.TIME_UNSET : Math.max(history.getOpening(), history.getPosition());
+    }
+
+    private long getInlineStartPosition() {
+        return inlineStartPosition != C.TIME_UNSET ? inlineStartPosition : getInlineResumePosition();
+    }
+
+    private void prepareInlineStartPosition() {
+        long position = getInlineStartPosition();
+        if (position > 0 && service() != null && player() != null && !player().isEmpty()) player().seekTo(position);
     }
 
     private void applyInlineStartPosition() {
         if (inlineStartPositionApplied || history == null || controller() == null) return;
+        long position = getInlineStartPosition();
         inlineStartPositionApplied = true;
-        long position = Math.max(history.getOpening(), history.getPosition());
         if (position > 0) controller().seekTo(position);
     }
 
@@ -3554,7 +3571,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void saveInlineHistory() {
-        if (!isInlinePlayerMode() || history == null || service() == null || player() == null) return;
+        if (!isInlinePlayerMode() || !inlineStarted || !isOwner() || history == null || service() == null || player() == null) return;
         if (!player().isEmpty()) {
             history.setCreateTime(System.currentTimeMillis());
             history.setPosition(player().getPosition());
@@ -3579,12 +3596,17 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     public void onTimeChanged(long time) {
         if (!isInlinePlayerMode() || !isOwner() || history == null || service() == null || player() == null || player().isEmpty()) return;
+        long position = player().getPosition();
+        long duration = player().getDuration();
+        boolean canUpdateProgress = inlineStartPositionApplied || getInlineStartPosition() <= 0;
         history.setCreateTime(time);
-        history.setPosition(player().getPosition());
-        history.setDuration(player().getDuration());
+        if (canUpdateProgress) {
+            history.setPosition(position);
+            history.setDuration(duration);
+        }
         updateInlineHistoryPlayer();
-        if (history.canSave() && history.canSync()) syncInlineHistory();
-        if (history.getEnding() > 0 && history.getDuration() > 0 && history.getEnding() + history.getPosition() >= history.getDuration()) {
+        if (canUpdateProgress && history.canSave() && history.canSync()) syncInlineHistory();
+        if (canUpdateProgress && history.getEnding() > 0 && duration > 0 && history.getEnding() + position >= duration) {
             if (hasAdjacentEpisode(1)) playAdjacentEpisode(1);
             else if (controller() != null) controller().pause();
         }
