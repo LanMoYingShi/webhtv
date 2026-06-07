@@ -141,6 +141,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private static final int SHORT_DRAMA_SCALE = 0;
     private static final int SHORT_DRAMA_FRAME_WIDTH = 9;
     private static final int SHORT_DRAMA_FRAME_HEIGHT = 16;
+    private static final Pattern SOURCE_SEASON = Pattern.compile("(?i)(?:第\\s*([零一二三四五六七八九十两0-9]+)\\s*[季部]|season\\s*([0-9]{1,2})|s([0-9]{1,2})(?:[-._\\s]*e[0-9]{1,3})?)");
 
     private final TmdbService tmdbService = new TmdbService();
     private final List<TmdbPerson> detailCastItems = new ArrayList<>();
@@ -1740,7 +1741,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private Map<Episode, Integer> episodeNumbers(List<Episode> visibleEpisodes, List<Episode> allEpisodes) {
         Map<Episode, Integer> numbers = new HashMap<>();
-        for (int i = 0; i < visibleEpisodes.size(); i++) numbers.put(visibleEpisodes.get(i), i + 1);
+        for (int i = 0; i < visibleEpisodes.size(); i++) {
+            Episode episode = visibleEpisodes.get(i);
+            EpisodePosition position = episodePosition(episode, allEpisodes);
+            numbers.put(episode, position.number() > 0 ? position.number() : i + 1);
+        }
         return numbers;
     }
 
@@ -1815,9 +1820,85 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         tmdbEpisodePhotos.addAll(seasonPhotos == null || seasonPhotos.isEmpty() ? detailTmdbPhotos : seasonPhotos);
     }
 
+    private boolean hasExplicitSeasonNumbers(List<Episode> episodes) {
+        if (episodes == null) return false;
+        for (Episode episode : episodes) if (sourceSeasonNumber(episode) > 0) return true;
+        return false;
+    }
+
+    private int sourceEpisodeNumber(Episode episode) {
+        return episode == null ? -1 : episode.getNumber();
+    }
+
+    private int sourceSeasonNumber(Episode episode) {
+        if (episode == null) return -1;
+        String name = episode.getName();
+        if (TextUtils.isEmpty(name)) return -1;
+        Matcher matcher = SOURCE_SEASON.matcher(name);
+        while (matcher.find()) {
+            int number = normalizeSourceNumber(firstNonEmptyGroup(matcher, 1, 2, 3));
+            if (number > 0) return number;
+        }
+        return -1;
+    }
+
+    private String firstNonEmptyGroup(Matcher matcher, int... groups) {
+        if (matcher == null || groups == null) return "";
+        for (int group : groups) {
+            String value = matcher.group(group);
+            if (!TextUtils.isEmpty(value)) return value;
+        }
+        return "";
+    }
+
+    private int normalizeSourceNumber(String value) {
+        if (TextUtils.isEmpty(value)) return -1;
+        value = value.trim();
+        try {
+            if (value.matches("\\d+")) return Integer.parseInt(value.replaceFirst("^0+(?!$)", ""));
+        } catch (Exception ignored) {
+            return -1;
+        }
+        int number = parseSmallChineseNumber(value);
+        return number > 0 ? number : -1;
+    }
+
+    private int parseSmallChineseNumber(String value) {
+        if (TextUtils.isEmpty(value)) return 0;
+        value = value.replace("两", "二").replace("零", "");
+        if (value.matches("[一二三四五六七八九]")) return chineseDigit(value.charAt(0));
+        int tenIndex = value.indexOf("十");
+        if (tenIndex >= 0) {
+            int tens = tenIndex == 0 ? 1 : chineseDigit(value.charAt(tenIndex - 1));
+            int ones = tenIndex == value.length() - 1 ? 0 : chineseDigit(value.charAt(tenIndex + 1));
+            return tens * 10 + ones;
+        }
+        return 0;
+    }
+
+    private int chineseDigit(char value) {
+        return switch (value) {
+            case '一' -> 1;
+            case '二' -> 2;
+            case '三' -> 3;
+            case '四' -> 4;
+            case '五' -> 5;
+            case '六' -> 6;
+            case '七' -> 7;
+            case '八' -> 8;
+            case '九' -> 9;
+            default -> 0;
+        };
+    }
+
     private List<Episode> visibleEpisodes(List<Episode> episodes) {
         if (episodes == null || episodes.isEmpty()) return List.of();
         if (seasonNumbers.size() <= 1 || selectedSeasonNumber < 0) return episodes;
+        if (hasExplicitSeasonNumbers(episodes)) {
+            List<Episode> visible = new ArrayList<>();
+            for (Episode episode : episodes) if (sourceSeasonNumber(episode) == selectedSeasonNumber) visible.add(episode);
+            if (!visible.isEmpty()) return visible;
+        }
         int start = 0;
         for (int i = 0; i < seasonNumbers.size(); i++) {
             Integer season = seasonNumbers.get(i);
@@ -1836,6 +1917,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private int seasonForEpisode(Episode episode, List<Episode> episodes) {
         if (seasonNumbers.isEmpty()) return -1;
         if (seasonNumbers.size() == 1) return seasonNumbers.get(0);
+        int sourceSeason = sourceSeasonNumber(episode);
+        if (seasonNumbers.contains(sourceSeason)) return sourceSeason;
+        if (selectedSeasonNumber > 0 && sourceEpisodeNumber(episode) > 0) return selectedSeasonNumber;
         int index = episode == null ? -1 : episodes.indexOf(episode);
         if (index < 0) return firstSeasonNumber(matchedTmdbDetail);
         int start = 0;
@@ -2303,9 +2387,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private int episodeNumberForHistory(Episode episode) {
         if (episode == null || selectedFlag == null || selectedFlag.getEpisodes() == null) return -1;
-        List<Episode> visible = visibleEpisodes(selectedFlag.getEpisodes());
-        int index = visible.indexOf(episode);
-        return index < 0 ? -1 : index + 1;
+        EpisodePosition position = episodePosition(episode, selectedFlag.getEpisodes());
+        return position.number();
     }
 
     private String playbackHistoryName() {
@@ -2773,17 +2856,75 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     protected boolean hasInlineCast() {
-        return false;
+        return hasInlineMedia() && hasClass("com.fongmi.android.tv.ui.dialog.CastDialog") && hasClass("com.fongmi.android.tv.bean.CastVideo");
     }
 
     protected boolean hasInlineInfo() {
-        return false;
+        return hasInlineMedia();
     }
 
     protected void onInlineCast() {
+        if (!hasInlineCast()) return;
+        try {
+            Class<?> videoClass = Class.forName("com.fongmi.android.tv.bean.CastVideo");
+            Object video = videoClass.getConstructor(String.class, String.class, long.class, Map.class).newInstance(inlineTitleText().toString(), player().getUrl(), player().getPosition(), player().getHeaders());
+            Class<?> dialogClass = Class.forName("com.fongmi.android.tv.ui.dialog.CastDialog");
+            Object dialog = dialogClass.getMethod("create").invoke(null);
+            if (history != null) dialogClass.getMethod("history", History.class).invoke(dialog, history);
+            dialog = dialogClass.getMethod("video", videoClass).invoke(dialog, video);
+            dialog = dialogClass.getMethod("fm", boolean.class).invoke(dialog, true);
+            dialogClass.getMethod("show", androidx.fragment.app.FragmentActivity.class).invoke(dialog, this);
+        } catch (Throwable e) {
+            Notify.show(TextUtils.isEmpty(e.getMessage()) ? getString(R.string.error_play_url) : e.getMessage());
+        }
     }
 
     protected void onInlineInfo() {
+        if (!hasInlineInfo()) return;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(inlineTitleText())
+                .setMessage(buildInlineInfoText())
+                .setPositiveButton(R.string.dialog_positive, null)
+                .show();
+    }
+
+    private boolean hasInlineMedia() {
+        return service() != null && player() != null && !player().isEmpty() && !TextUtils.isEmpty(player().getUrl());
+    }
+
+    private boolean hasClass(String name) {
+        try {
+            Class.forName(name);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private String buildInlineInfoText() {
+        StringBuilder builder = new StringBuilder();
+        appendInlineInfo(builder, "URL", trimDataUrl(player().getUrl()));
+        appendInlineInfo(builder, "Headers", buildInlineHeaders(player().getHeaders()));
+        appendInlineInfo(builder, "Params", player().getVideoParamsText());
+        return builder.length() == 0 ? "-" : builder.toString();
+    }
+
+    private String trimDataUrl(String url) {
+        if (TextUtils.isEmpty(url)) return "";
+        return url.startsWith("data") ? url.substring(0, Math.min(url.length(), 128)).concat("...") : url;
+    }
+
+    private String buildInlineHeaders(Map<String, String> headers) {
+        if (headers == null || headers.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder();
+        for (String key : headers.keySet()) builder.append(key).append(" : ").append(headers.get(key)).append("\n");
+        return Util.substring(builder.toString());
+    }
+
+    private void appendInlineInfo(StringBuilder builder, String label, String value) {
+        if (TextUtils.isEmpty(value)) return;
+        if (builder.length() > 0) builder.append("\n\n");
+        builder.append(label).append("\n").append(value);
     }
 
     protected boolean showInlinePlayerInfo() {
@@ -3287,7 +3428,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private EpisodePosition episodePosition(Episode episode, List<Episode> episodes) {
         int index = episode == null || episodes == null ? -1 : episodes.indexOf(episode);
-        if (index < 0) return new EpisodePosition(selectedSeasonNumber, episodeNumberForHistory(episode));
+        int sourceNumber = sourceEpisodeNumber(episode);
+        int sourceSeason = sourceSeasonNumber(episode);
+        if (useSourceEpisodeNumber(sourceNumber, sourceSeason)) {
+            int season = seasonNumbers.contains(sourceSeason) ? sourceSeason : selectedSeasonNumber;
+            if (season < 0 && seasonNumbers.size() == 1) season = seasonNumbers.get(0);
+            return new EpisodePosition(season, sourceNumber);
+        }
+        if (index < 0) return new EpisodePosition(selectedSeasonNumber, -1);
         if (seasonNumbers.size() <= 1 || selectedSeasonNumber < 0) return new EpisodePosition(selectedSeasonNumber, index + 1);
         int start = 0;
         for (int i = 0; i < seasonNumbers.size(); i++) {
@@ -3299,6 +3447,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             start += count;
         }
         return new EpisodePosition(selectedSeasonNumber, index + 1);
+    }
+
+    private boolean useSourceEpisodeNumber(int sourceNumber, int sourceSeason) {
+        if (sourceNumber <= 0) return false;
+        if (seasonNumbers.size() <= 1) return true;
+        if (seasonNumbers.contains(sourceSeason)) return true;
+        if (selectedSeasonNumber < 0) return true;
+        int count = seasonEpisodeCounts.getOrDefault(selectedSeasonNumber, 0);
+        return count <= 0 || sourceNumber <= count;
     }
 
     private List<Episode> orderedInlineEpisodes() {
@@ -3565,6 +3722,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         List<Episode> episodes = selectedFlag.getEpisodes();
         int index = episodes.indexOf(selectedEpisode);
         int next = index + direction;
+        while (index >= 0 && next >= 0 && next < episodes.size() && isSameEpisodeSlot(selectedEpisode, episodes.get(next), episodes)) next += direction;
         if (index < 0 || next < 0 || next >= episodes.size()) {
             if (notify) Notify.show(direction > 0 ? R.string.error_play_next : R.string.error_play_prev);
             return false;
@@ -3574,6 +3732,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         renderEpisodes();
         onPlay();
         return true;
+    }
+
+    private boolean isSameEpisodeSlot(Episode left, Episode right, List<Episode> episodes) {
+        EpisodePosition leftPosition = episodePosition(left, episodes);
+        EpisodePosition rightPosition = episodePosition(right, episodes);
+        return leftPosition.number() > 0
+                && leftPosition.number() == rightPosition.number()
+                && leftPosition.season() == rightPosition.season();
     }
 
     private void checkInlineNext() {

@@ -169,7 +169,7 @@
         android:max="10000"
         android:progress="0"
         android:visibility="gone"
-        app:indicatorColor="@color/white"
+        app:indicatorColor="#2196F3"
         app:trackColor="@android:color/transparent"
         app:trackThickness="2dp"
         tools:visibility="visible" />

@@ -3,6 +3,8 @@
     <item name="back" type="id" />
     <item name="cast" type="id" />
     <item name="fullscreen" type="id" />
+    <item name="lock" type="id" />
+    <item name="rotate" type="id" />
     <item name="batteryInfo" type="id" />
     <item name="battery" type="id" />
     <item name="actionQuality" type="id" />

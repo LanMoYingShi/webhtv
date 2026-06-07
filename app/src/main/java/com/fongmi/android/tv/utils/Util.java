@@ -31,7 +31,12 @@ import java.util.regex.Pattern;
 
 public class Util {
 
-    private static final Pattern EPISODE = Pattern.compile("(?i)(?:ep|第|e|[\\-\\.\\s])\\s?(\\d{1,4})");
+    private static final Pattern EPISODE_SEASON = Pattern.compile("[Ss](?:[0-9]{1,2})?[-._\\s]*[Ee]([0-9]{1,3})", Pattern.CASE_INSENSITIVE);
+    private static final Pattern EPISODE_CHINESE = Pattern.compile("第\\s*([零一二三四五六七八九十百千万两0-9]+)\\s*[集话話章节回期]");
+    private static final Pattern EPISODE_TOKEN = Pattern.compile("\\b(?:EP|E)[-._\\s]*([0-9]{1,3})\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern EPISODE_BRACKET = Pattern.compile("[\\[\\]()【】（）]{1,2}([0-9]{1,3})[\\[\\]()【】（）]{1,2}");
+    private static final Pattern EPISODE_FILENAME = Pattern.compile("(?<![0-9])\\b([0-9]{1,3})\\.(?:[0-9]{3,4}[pP]|[0-9]{3,4}x[0-9]{3,4}|720|1080|480|HD|SD)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern EPISODE_STANDALONE = Pattern.compile("(?:[\\s\\[\\]()【】（）\\-._]|^)([0-9]{1,3})(?![0-9])");
 
     public static void toggleFullscreen(Activity activity, boolean fullscreen) {
         if (fullscreen) hideSystemUI(activity);
@@ -100,16 +105,172 @@ public class Util {
 
     public static int getNumber(String text) {
         try {
-            text = text.replaceAll("\\[.*?\\]|\\(.*?\\)", "");
-            text = text.replaceAll("\\b(19|20)\\d{2}\\b", "");
-            text = text.toLowerCase().replaceAll("2160p|1080p|720p|480p|4k|h26[45]|x26[45]|mp4", "");
-            Matcher matcher = EPISODE.matcher(text);
-            if (matcher.find()) return Integer.parseInt(matcher.group(1));
-            String number = text.replaceAll("\\D+", "");
-            return number.isEmpty() ? -1 : Integer.parseInt(number);
+            String number = extractEpisodeNumber(text);
+            return TextUtils.isEmpty(number) ? -1 : Integer.parseInt(number.replaceFirst("^0+(?!$)", ""));
         } catch (Exception e) {
             return -1;
         }
+    }
+
+    private static String extractEpisodeNumber(String title) {
+        if (TextUtils.isEmpty(title)) return "";
+        String text = preprocessEpisodeTitle(title);
+        String standalone = extractStandaloneEpisode(text);
+        if (!TextUtils.isEmpty(standalone)) return standalone;
+
+        Matcher matcher = EPISODE_SEASON.matcher(text);
+        if (matcher.find()) return matcher.group(1);
+
+        matcher = EPISODE_CHINESE.matcher(text);
+        if (matcher.find()) return normalizeEpisodeNumber(matcher.group(1));
+
+        matcher = EPISODE_TOKEN.matcher(text);
+        if (matcher.find()) return matcher.group(1);
+
+        matcher = EPISODE_BRACKET.matcher(text);
+        if (matcher.find() && !isLikelyFileSize(text, matcher.start(1), matcher.end(1))) return matcher.group(1);
+
+        matcher = EPISODE_FILENAME.matcher(text);
+        if (matcher.find() && acceptEpisodeNumber(text, matcher.group(1), matcher.start(1), matcher.end(1), true)) return matcher.group(1);
+
+        MatchCandidate best = null;
+        matcher = EPISODE_STANDALONE.matcher(text);
+        while (matcher.find()) {
+            String number = matcher.group(1);
+            int start = matcher.start(1);
+            int end = matcher.end(1);
+            if (!acceptEpisodeNumber(text, number, start, end, false)) continue;
+            MatchCandidate candidate = new MatchCandidate(number, start, priorityEpisodeNumber(text, number, start, end));
+            if (best == null || candidate.priority > best.priority || (candidate.priority == best.priority && candidate.start > best.start)) best = candidate;
+        }
+        return best == null ? "" : best.number;
+    }
+
+    private static String preprocessEpisodeTitle(String title) {
+        String text = title
+                .replaceAll("\\[[0-9]+(?:\\.[0-9]+)?[GMK]B?\\]", " ")
+                .replaceAll("\\([0-9]+(?:\\.[0-9]+)?[GMK]B?\\)", " ")
+                .replaceAll("【[0-9]+(?:\\.[0-9]+)?[GMK]B?】", " ")
+                .replaceAll("（[0-9]+(?:\\.[0-9]+)?[GMK]B?）", " ")
+                .replaceAll("\\b(?:2160|1080|720|480)[pP]\\b", " ")
+                .replaceAll("\\b(?:4K|2K|HD|SD|FHD|UHD)\\b", " ")
+                .replaceAll("\\b(?:x264|x265|H264|H265|AVC|HEVC)\\b", " ")
+                .replaceAll("\\b(?:AAC|AC3|EAC3|DTS|FLAC|TrueHD|DDP|Atmos|DoVi|Dolby|HDR10|HDR)\\b", " ")
+                .replaceAll("\\b[0-9]{1,3}\\s*fps\\b", " ")
+                .replaceAll("\\b(?:WEB[-._\\s]*DL|BluRay|BDRip|HDRip|REMUX|HDTV|HQ)\\b", " ")
+                .replaceAll("\\b[vV](?:[0-9]+(?:\\.[0-9]+)?)\\b", " ")
+                .replaceAll("高码率|高码", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        return text;
+    }
+
+    private static String extractStandaloneEpisode(String title) {
+        if (!title.matches("\\d{1,3}")) return "";
+        int value = Integer.parseInt(title);
+        if (value <= 0 || (value > 99 && !title.startsWith("0"))) return "";
+        return String.valueOf(value);
+    }
+
+    private static boolean acceptEpisodeNumber(String title, String number, int start, int end, boolean strong) {
+        int value;
+        try {
+            value = Integer.parseInt(number);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        if (value <= 0 || value > 999 || isLikelyFileSize(title, start, end)) return false;
+        String context = getContext(title, start, end, strong ? 14 : 10).toLowerCase(Locale.ROOT);
+        if (context.matches("(?i).*(ep|episode|season|第|集|话|話|章|回|期|part).*")) return true;
+        if (containsMediaNoise(context)) return false;
+        String before = start > 0 ? title.substring(0, start) : "";
+        String after = end < title.length() ? title.substring(end) : "";
+        boolean hasSeparatorBefore = start == 0 || before.matches(".*[\\s._\\-\\[【(（]$");
+        boolean hasVideoTokenAfter = after.matches("(?i)^(?:[\\s._\\-\\]】)）]*)?(?:[0-9]{3,4}p|[0-9]{3,4}x[0-9]{3,4}|[1248]k|HD|SD|FHD|UHD|WEB|HDTV|BDRip|BluRay|REMUX|HDRip|m3u8|mp4|mkv|ts|flv|avi|mov|wmv|webm)\\b.*");
+        boolean startsLikeEpisode = start == 0 && after.matches("^[\\s._\\-].*");
+        return hasSeparatorBefore && (hasVideoTokenAfter || startsLikeEpisode);
+    }
+
+    private static int priorityEpisodeNumber(String title, String number, int start, int end) {
+        int value = Integer.parseInt(number);
+        int priority = value <= 99 ? 10 : 0;
+        String before = start > 0 ? title.substring(Math.max(0, start - 3), start) : "";
+        String after = end < title.length() ? title.substring(end, Math.min(title.length(), end + 3)) : "";
+        if (before.matches(".*[\\s\\[\\]()\\-._].*")) priority += 5;
+        if (after.matches("^[\\.\\s\\[\\]()\\-].*")) priority += 5;
+        return priority + (start * 100 / Math.max(1, title.length()));
+    }
+
+    private static boolean isLikelyFileSize(String title, int start, int end) {
+        if (start < 0 || end > title.length()) return false;
+        if (start > 1) {
+            String before = title.substring(Math.max(0, start - 3), start);
+            if (before.matches(".*[0-9]\\.[0-9]*$")) return true;
+        }
+        if (end < title.length()) {
+            String after = title.substring(end, Math.min(title.length(), end + 5));
+            return after.matches("^(?:\\.?[0-9]*[GMK]B?\\b).*");
+        }
+        return false;
+    }
+
+    private static boolean containsMediaNoise(String text) {
+        return !TextUtils.isEmpty(text) && text.matches("(?i).*(gb|mb|kb|fps|bitrate|码率|ddp|eac3|ac3|dts|aac|flac|atmos|truehd|dolby|hdr|h\\.?26[45]|x26[45]|web[-._\\s]*dl|bluray|bdrip|remux|hq|uhd|fhd).*");
+    }
+
+    private static String getContext(String title, int start, int end, int size) {
+        return title.substring(Math.max(0, start - size), Math.min(title.length(), end + size));
+    }
+
+    private static String normalizeEpisodeNumber(String value) {
+        if (TextUtils.isEmpty(value)) return "";
+        value = value.trim();
+        if (value.matches("\\d+")) return String.valueOf(Integer.parseInt(value.replaceFirst("^0+(?!$)", "")));
+        int number = chineseEpisodeNumber(value);
+        return number > 0 ? String.valueOf(number) : "";
+    }
+
+    private static int chineseEpisodeNumber(String value) {
+        if (TextUtils.isEmpty(value)) return 0;
+        value = value.replace("两", "二").replace("零", "");
+        if (value.matches("[一二三四五六七八九]")) return chineseDigit(value.charAt(0));
+        int wan = value.indexOf("万");
+        if (wan >= 0) return chineseEpisodeNumber(value.substring(0, wan)) * 10000 + chineseEpisodeNumber(value.substring(wan + 1));
+        int qian = value.indexOf("千");
+        if (qian >= 0) return chineseEpisodeNumber(value.substring(0, qian)) * 1000 + chineseEpisodeNumber(value.substring(qian + 1));
+        int bai = value.indexOf("百");
+        if (bai >= 0) return chineseEpisodeNumber(value.substring(0, bai)) * 100 + chineseEpisodeNumber(value.substring(bai + 1));
+        int shi = value.indexOf("十");
+        if (shi >= 0) {
+            int tens = shi == 0 ? 1 : chineseDigit(value.charAt(shi - 1));
+            int ones = shi == value.length() - 1 ? 0 : chineseDigit(value.charAt(shi + 1));
+            return tens * 10 + ones;
+        }
+        StringBuilder digits = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            int digit = chineseDigit(value.charAt(i));
+            if (digit <= 0) return 0;
+            digits.append(digit);
+        }
+        return digits.length() == 0 ? 0 : Integer.parseInt(digits.toString());
+    }
+
+    private static int chineseDigit(char c) {
+        return switch (c) {
+            case '一' -> 1;
+            case '二' -> 2;
+            case '三' -> 3;
+            case '四' -> 4;
+            case '五' -> 5;
+            case '六' -> 6;
+            case '七' -> 7;
+            case '八' -> 8;
+            case '九' -> 9;
+            default -> 0;
+        };
+    }
+
+    private record MatchCandidate(String number, int start, int priority) {
     }
 
     public static String clean(String text) {
