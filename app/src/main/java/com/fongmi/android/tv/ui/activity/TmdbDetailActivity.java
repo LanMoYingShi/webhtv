@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.TextUtils;
@@ -143,6 +144,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private static final int SHORT_DRAMA_FRAME_HEIGHT = 16;
     private static final int INLINE_SIDE_CONTROL_MARGIN_DP = 4;
     private static final int INLINE_SIDE_CONTROL_FULLSCREEN_MARGIN_DP = 48;
+    private static final long LEANBACK_FUSION_EXIT_DISPLAY_SUPPRESS_MS = 800;
     private static final float NORMAL_SPEED = 1.0f;
     private static final Pattern SOURCE_SEASON = Pattern.compile("(?i)(?:第\\s*([零一二三四五六七八九十两0-9]+)\\s*[季部]|season\\s*([0-9]{1,2})|s([0-9]{1,2})(?:[-._\\s]*e[0-9]{1,3})?)");
 
@@ -203,6 +205,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private View detailActionRoot;
     private View inlineControlFocus;
     private long lastInlineControlInteraction;
+    private long inlineDisplaySuppressUntil;
     private long inlineKeySeekTime;
     private boolean inlineKeySpeedChanging;
     private float inlineGestureSpeed = 1.0f;
@@ -516,6 +519,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineClock.setCallback(this);
         inlineClock.start();
         inlineGestureDetector = PlayerGesture.create(this, binding.playerPanel, this);
+        setupPlayerPanelFocusLayer();
         binding.playerPanel.setOnTouchListener(this::onInlineTouch);
         binding.playerPanel.setOnKeyListener(this::onInlinePanelKey);
         binding.playerPanel.setOnFocusChangeListener((view, focused) -> updatePlayerPanelFocus());
@@ -1124,6 +1128,16 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         boolean focused = binding.playerPanel.hasFocus() && !hasFocusedChild(inlineControlsView());
         binding.playerPanel.setStrokeColor(focused ? FOCUS_STROKE : colors.line);
         binding.playerPanel.setStrokeWidth(ResUtil.dp2px(focused ? FOCUS_STROKE_DP : CHIP_STROKE_DP));
+    }
+
+    private boolean isLeanbackFusionPlayerPanel() {
+        return Util.isLeanback() && isFusionMode();
+    }
+
+    private void setupPlayerPanelFocusLayer() {
+        if (!isLeanbackFusionPlayerPanel()) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) binding.playerPanel.setDefaultFocusHighlightEnabled(false);
+        binding.playerPanel.setRippleColor(ColorStateList.valueOf(0x00000000));
     }
 
     private void focusInlinePlayerPanel() {
@@ -2635,6 +2649,17 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerDisplayMini.setVisibility(View.GONE);
     }
 
+    private boolean suppressInlineDisplayForLeanbackFusionExit() {
+        if (!Util.isLeanback() || !isFusionMode()) return false;
+        inlineDisplaySuppressUntil = Math.max(inlineDisplaySuppressUntil, SystemClock.uptimeMillis() + LEANBACK_FUSION_EXIT_DISPLAY_SUPPRESS_MS);
+        hideInlineDisplayPanel();
+        return true;
+    }
+
+    private boolean isInlineDisplaySuppressed() {
+        return SystemClock.uptimeMillis() < inlineDisplaySuppressUntil;
+    }
+
     private void hideInlineControlsIfIdle() {
         if (!Util.isMobile() && hasFocusedChild(inlineControlsView())) {
             App.post(inlineHideControls, Constant.INTERVAL_HIDE);
@@ -2868,6 +2893,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void updateInlineDisplayPanel() {
         if (binding == null) return;
+        if (isInlineDisplaySuppressed()) {
+            hideInlineDisplayPanel();
+            return;
+        }
         boolean hasPlayer = isInlinePlayerMode() && service() != null && player() != null && !player().isEmpty();
         boolean centerVisible = binding.gestureSeek.getVisibility() == View.VISIBLE;
         boolean canShow = hasPlayer && inlineControlsView().getVisibility() != View.VISIBLE && binding.playerProgress.getVisibility() != View.VISIBLE && binding.playerError.getVisibility() != View.VISIBLE;
@@ -3785,6 +3814,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void exitInlineFullscreen() {
         if (!inlineFullscreen) return;
         boolean closeDetailPlayer = detailPlayerActive && !isFusionMode();
+        boolean suppressDisplay = suppressInlineDisplayForLeanbackFusionExit();
         prepareInlinePlayerTransition();
         inlineFullscreen = false;
         setInlineLock(false);
@@ -3799,7 +3829,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setInlineFullscreenIcon();
         boolean playing = service() != null && !player().isEmpty() && player().isPlaying();
         updateInlineButtons(playing);
-        if (!closeDetailPlayer) updateInlineDisplayPanel();
+        if (!closeDetailPlayer && !suppressDisplay) updateInlineDisplayPanel();
         Util.toggleFullscreen(this, false);
         updateMobileInlineSideControlMargins();
         setRequestedOrientation(requestedOrientation);
