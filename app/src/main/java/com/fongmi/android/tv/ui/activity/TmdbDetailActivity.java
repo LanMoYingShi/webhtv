@@ -810,11 +810,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void hideInlineGestureOverlays() {
         if (binding == null) return;
         inlinePauseInfo = false;
+        hideInlineGestureViews();
+        updateInlineDisplayPanel();
+    }
+
+    private void hideInlineGestureViews() {
         binding.gestureSeek.setVisibility(View.GONE);
         binding.gestureSpeed.setVisibility(View.GONE);
         binding.gestureBright.setVisibility(View.GONE);
         binding.gestureVolume.setVisibility(View.GONE);
-        updateInlineDisplayPanel();
     }
 
     private boolean onInlineControlTouch(View view, MotionEvent event) {
@@ -2594,6 +2598,28 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         updateInlineDisplayPanel();
     }
 
+    private void prepareInlinePlayerTransition() {
+        if (binding == null) return;
+        inlinePauseInfo = false;
+        App.removeCallbacks(inlineHideControls);
+        inlineControlsView().setVisibility(View.GONE);
+        hideInlineGestureViews();
+        hideInlineDisplayPanel();
+        View focus = getCurrentFocus();
+        if (focus != null && isDescendant(binding.playerPanel, focus)) focus.clearFocus();
+        binding.playerPanel.requestFocus();
+    }
+
+    private void hideInlineDisplayPanel() {
+        binding.playerDisplayTitle.setVisibility(View.GONE);
+        binding.playerDisplaySize.setVisibility(View.GONE);
+        binding.playerDisplayTopLeft.setVisibility(View.GONE);
+        binding.playerDisplayClock.setVisibility(View.GONE);
+        binding.playerDisplayTraffic.setVisibility(View.GONE);
+        binding.playerDisplayBottomProgress.setVisibility(View.GONE);
+        binding.playerDisplayMini.setVisibility(View.GONE);
+    }
+
     private void hideInlineControlsIfIdle() {
         if (!Util.isMobile() && hasFocusedChild(inlineControlsView())) {
             App.post(inlineHideControls, Constant.INTERVAL_HIDE);
@@ -3261,7 +3287,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void onInlineBack() {
         if (inlineFullscreen) backFromInlineFullscreen();
-        else finish();
+        else {
+            prepareInlinePlayerTransition();
+            finish();
+        }
     }
 
     private void backFromInlineFullscreen() {
@@ -3273,6 +3302,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void finishPlaybackToHome() {
+        prepareInlinePlayerTransition();
         saveInlineHistory();
         startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         finish();
@@ -3740,6 +3770,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void exitInlineFullscreen() {
         if (!inlineFullscreen) return;
         boolean closeDetailPlayer = detailPlayerActive && !isFusionMode();
+        prepareInlinePlayerTransition();
         inlineFullscreen = false;
         setInlineLock(false);
         ((ViewGroup) binding.playerPanel.getParent()).removeView(binding.playerPanel);
@@ -3753,7 +3784,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setInlineFullscreenIcon();
         boolean playing = service() != null && !player().isEmpty() && player().isPlaying();
         updateInlineButtons(playing);
-        updateInlineDisplayPanel();
+        if (!closeDetailPlayer) updateInlineDisplayPanel();
         Util.toggleFullscreen(this, false);
         updateMobileInlineSideControlMargins();
         setRequestedOrientation(requestedOrientation);
