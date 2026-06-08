@@ -2051,7 +2051,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void playDefaultPlayback() {
-        VideoActivity.startDirect(this, getKeyText(), getIdText(), playbackHistoryName(), playbackHistoryPic(), playbackMark());
+        VideoActivity.startDirectTmdb(this, getKeyText(), getIdText(), playbackHistoryName(), playbackHistoryPic(), playbackMark(), selectedTmdbEpisodeTitles(), playbackTmdbItem(), playbackTmdbVod());
     }
 
     private String playbackMark() {
@@ -4930,8 +4930,20 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         item.setArea(coalesce(firstCountry(), vod.getArea()));
         item.setTypeName(coalesce(firstGenre(), vod.getTypeName()));
         item.setDirector(coalesce(firstCrew("Director"), vod.getDirector()));
+        item.setActor(coalesce(castNames(), vod.getActor()));
         item.setRemarks(coalesce(getMarkText(), vod.getRemarks()));
         return item;
+    }
+
+    private String castNames() {
+        List<String> names = new ArrayList<>();
+        for (TmdbPerson person : detailCastItems) {
+            String name = person.getName();
+            if (TextUtils.isEmpty(name) || names.contains(name)) continue;
+            names.add(name);
+            if (names.size() >= 8) break;
+        }
+        return TextUtils.join(" / ", names);
     }
 
     private String yearLabel() {

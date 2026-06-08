@@ -53,6 +53,7 @@ public class TmdbPlaybackActivity extends VideoActivity implements TmdbPlaybackE
         intent.putExtra("tmdb_vod_area", vod.getArea());
         intent.putExtra("tmdb_vod_type", vod.getTypeName());
         intent.putExtra("tmdb_vod_director", vod.getDirector());
+        intent.putExtra("tmdb_vod_actor", vod.getActor());
         intent.putExtra("tmdb_vod_remark", vod.getRemarks());
     }
 
@@ -115,6 +116,7 @@ public class TmdbPlaybackActivity extends VideoActivity implements TmdbPlaybackE
         vod.setArea(coalesce(getStringExtra("tmdb_vod_area"), source.getArea()));
         vod.setTypeName(coalesce(getStringExtra("tmdb_vod_type"), source.getTypeName()));
         vod.setDirector(coalesce(getStringExtra("tmdb_vod_director"), source.getDirector()));
+        vod.setActor(coalesce(getStringExtra("tmdb_vod_actor"), source.getActor()));
         vod.setRemarks(coalesce(getStringExtra("tmdb_vod_remark"), source.getRemarks()));
         vod.setPlayFrom(source.getPlayFrom());
         vod.setPlayUrl(source.getPlayUrl());
@@ -151,7 +153,7 @@ public class TmdbPlaybackActivity extends VideoActivity implements TmdbPlaybackE
     }
 
     private boolean hasIntentTmdbVod() {
-        return !TextUtils.isEmpty(getStringExtra("tmdb_vod_title")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_content")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_year")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_area")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_type")) || !TextUtils.isEmpty(getStringExtra("tmdb_title")) || !TextUtils.isEmpty(getStringExtra("tmdb_overview"));
+        return !TextUtils.isEmpty(getStringExtra("tmdb_vod_title")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_content")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_year")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_area")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_type")) || !TextUtils.isEmpty(getStringExtra("tmdb_vod_actor")) || !TextUtils.isEmpty(getStringExtra("tmdb_title")) || !TextUtils.isEmpty(getStringExtra("tmdb_overview"));
     }
 
     private String getStringExtra(String key) {

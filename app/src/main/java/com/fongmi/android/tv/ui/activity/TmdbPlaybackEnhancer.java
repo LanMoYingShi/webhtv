@@ -112,17 +112,19 @@ public class TmdbPlaybackEnhancer {
         private final String backdrop;
         private final String subtitle;
         private final String director;
+        private final String actor;
         private final String year;
         private final String area;
         private final String type;
 
-        private TmdbUpdate(String title, String overview, String poster, String backdrop, String subtitle, String director, String year, String area, String type) {
+        private TmdbUpdate(String title, String overview, String poster, String backdrop, String subtitle, String director, String actor, String year, String area, String type) {
             this.title = title;
             this.overview = overview;
             this.poster = poster;
             this.backdrop = backdrop;
             this.subtitle = subtitle;
             this.director = director;
+            this.actor = actor;
             this.year = year;
             this.area = area;
             this.type = type;
@@ -142,6 +144,7 @@ public class TmdbPlaybackEnhancer {
                     backdrop,
                     subtitle,
                     firstCrew(detail, "Director"),
+                    castNames(detail),
                     year,
                     area,
                     type);
@@ -165,11 +168,26 @@ public class TmdbPlaybackEnhancer {
             if (!TextUtils.isEmpty(title)) update.setName(title);
             if (!TextUtils.isEmpty(overview)) update.setContent(overview);
             if (!TextUtils.isEmpty(coalesce(backdrop, poster))) update.setPic(coalesce(backdrop, poster));
-            if (!TextUtils.isEmpty(director) && TextUtils.isEmpty(vod.getDirector())) update.setDirector(director);
-            if (!TextUtils.isEmpty(year) && TextUtils.isEmpty(vod.getYear())) update.setYear(year);
-            if (!TextUtils.isEmpty(area) && TextUtils.isEmpty(vod.getArea())) update.setArea(area);
-            if (!TextUtils.isEmpty(type) && TextUtils.isEmpty(vod.getTypeName())) update.setTypeName(type);
+            if (!TextUtils.isEmpty(director)) update.setDirector(director);
+            if (!TextUtils.isEmpty(actor)) update.setActor(actor);
+            if (!TextUtils.isEmpty(year)) update.setYear(year);
+            if (!TextUtils.isEmpty(area)) update.setArea(area);
+            if (!TextUtils.isEmpty(type)) update.setTypeName(type);
             return update;
+        }
+
+        private static String castNames(JsonObject detail) {
+            StringBuilder builder = new StringBuilder();
+            int count = 0;
+            for (JsonElement element : array(detail, "credits", "cast")) {
+                if (!element.isJsonObject()) continue;
+                String name = string(element.getAsJsonObject(), "name");
+                if (TextUtils.isEmpty(name) || builder.toString().contains(name)) continue;
+                if (builder.length() > 0) builder.append(" / ");
+                builder.append(name);
+                if (++count >= 8) break;
+            }
+            return builder.toString();
         }
 
         private static String firstCrew(JsonObject detail, String job) {
