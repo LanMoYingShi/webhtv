@@ -45,11 +45,11 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     private static final int SEARCH_COLUMN_COUNT = 2;
     private static final long SEARCH_UPDATE_DELAY = 80;
     private static final long SEARCH_SCROLL_DELAY = 180;
-    private static final long SEARCH_FIRST_IMAGE_DELAY = 300;
-    private static final long SEARCH_AFTER_SCROLL_DELAY = 800;
-    private static final long SEARCH_IMAGE_DELAY = 220;
+    private static final long SEARCH_FIRST_IMAGE_DELAY = 0;
+    private static final long SEARCH_AFTER_SCROLL_DELAY = 240;
+    private static final long SEARCH_IMAGE_DELAY = 80;
     private static final int SEARCH_BATCH_SIZE = 24;
-    private static final int SEARCH_IMAGE_BATCH_SIZE = 1;
+    private static final int SEARCH_IMAGE_BATCH_SIZE = 2;
     private static final int COLLECT_BATCH_SIZE = 8;
 
     private FragmentCollectBinding mBinding;
