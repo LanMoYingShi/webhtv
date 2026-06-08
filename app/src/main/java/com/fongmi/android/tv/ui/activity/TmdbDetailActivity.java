@@ -2051,7 +2051,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void playDefaultPlayback() {
-        TmdbPlaybackActivity.start(this, getKeyText(), getIdText(), playbackHistoryName(), playbackHistoryPic(), playbackMark(), selectedTmdbEpisodeTitles(), playbackTmdbItem(), playbackTmdbVod());
+        VideoActivity.startDirect(this, getKeyText(), getIdText(), playbackHistoryName(), playbackHistoryPic(), playbackMark());
     }
 
     private String playbackMark() {
@@ -2523,9 +2523,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineStartPositionApplied = false;
         pendingInlineResult = null;
         currentInlineResult = null;
-        if (service() == null || player() == null || player().isEmpty()) return;
+        if (service() == null || player() == null || player().isEmpty()) {
+            updateInlineButtons(false);
+            return;
+        }
         player().stop();
         player().clear();
+        updateInlineButtons(false);
     }
 
     private void startInlinePlayer(Result result) {
@@ -2735,16 +2739,19 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void updateInlineButtons(boolean playing) {
-        if (!isInlinePlayerMode() || inlineControlController == null) return;
+        if (!isInlinePlayerMode() || inlineControlController == null) {
+            setInlineDecodeText(getString(R.string.play_decode_idle));
+            return;
+        }
+        boolean hasPlayer = service() != null && !player().isEmpty();
         setInlineSpeedText(service() == null || player().isEmpty() ? getString(R.string.play_speed) : player().getSpeedText());
-        binding.playerDecode.setText(service() == null ? getString(R.string.play_decode) : player().getDecodeText());
+        setInlineDecodeText(inlineDecodeText(hasPlayer));
         binding.playerExternal.setText(service() == null ? getString(R.string.play_exo) : player().getPlayerText());
         binding.playerScale.setText(scaleLabel());
         binding.playerQuality.setText(qualityLabel());
         binding.playerParse.setText(parseLabel());
         binding.playerOpening.setText(inlineOpeningLabel());
         binding.playerEnding.setText(inlineEndingLabel());
-        boolean hasPlayer = service() != null && !player().isEmpty();
         inlineControlController.updateSize(binding.playerSize, inlineFullscreen);
         int episodeCount = selectedFlag == null || selectedFlag.getEpisodes() == null ? 0 : selectedFlag.getEpisodes().size();
         boolean hasPrev = hasAdjacentEpisode(-1);
@@ -2861,6 +2868,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailActionView(R.id.repeat, View.class).setSelected(hasPlayer && player().isRepeatOne());
         action.setVisibility(inlineFullscreen && !locked ? View.VISIBLE : View.GONE);
         inlineControlController.updateDanmakuState();
+    }
+
+    private CharSequence inlineDecodeText(boolean hasPlayer) {
+        return hasPlayer ? player().getDecodeText() : getString(R.string.play_decode_idle);
+    }
+
+    private void setInlineDecodeText(CharSequence text) {
+        binding.playerDecode.setText(text);
+        if (Util.isMobile() && detailActionRoot != null) detailActionView(R.id.decode, TextView.class).setText(text);
     }
 
     private void updateMobileInlineControlStatus(boolean hasPlayer) {
@@ -3230,7 +3246,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void toggleInlineDecode() {
         if (service() == null || player().isEmpty()) return;
         player().toggleDecode();
-        binding.playerDecode.setText(player().getDecodeText());
+        setInlineDecodeText(inlineDecodeText(true));
     }
 
     private void toggleInlinePlayer() {
@@ -3239,7 +3255,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         updateInlineHistoryPlayer();
         syncInlineHistory();
         binding.playerExternal.setText(player().getPlayerText());
-        binding.playerDecode.setText(player().getDecodeText());
+        setInlineDecodeText(inlineDecodeText(true));
         updateInlineButtons(false);
     }
 
@@ -3894,6 +3910,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         pendingInlineResult = null;
         currentInlineResult = null;
         useParse = false;
+        updateInlineButtons(false);
         DanmakuApi.cancel();
         updatePlayLabel();
     }
