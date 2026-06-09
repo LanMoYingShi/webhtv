@@ -65,6 +65,6 @@ public class RestoreDialog extends BaseAlertDialog implements RestoreAdapter.OnC
     public void onStart() {
         super.onStart();
         if (adapter.getItemCount() == 0) dismiss();
-        else setWidth(0.4f);
+        else setWidth(0.44f);
     }
 }

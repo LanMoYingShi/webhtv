@@ -2,29 +2,31 @@
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/shape_accent"
+    android:background="@drawable/shape_restore_item"
     android:gravity="center_vertical"
     android:orientation="horizontal">
 
     <androidx.appcompat.widget.LinearLayoutCompat
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
+        android:layout_marginEnd="4dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/name"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:ellipsize="end"
             android:singleLine="true"
             android:textColor="?attr/colorOnSurface"
             android:textSize="14sp" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/time"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:ellipsize="end"
             android:singleLine="true"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="12sp" />
@@ -33,9 +35,10 @@
 
     <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/delete"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
         android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="6dp"
         android:src="@drawable/ic_setting_delete" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>

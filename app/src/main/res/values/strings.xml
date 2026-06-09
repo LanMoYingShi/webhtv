@@ -323,6 +323,7 @@
 
     <!-- Backup & Restore -->
     <string name="restore_select">Select backup</string>
+    <string name="restore_backup_meta">Backup %1$s | Modified %2$s</string>
     <string name="restore_success">Restore successful</string>
     <string name="restore_fail">Restore failed</string>
     <string name="backup_success">Backup successful</string>

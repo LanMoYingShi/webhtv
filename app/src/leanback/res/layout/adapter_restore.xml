@@ -1,34 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/card"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal">
+    android:layout_height="60dp"
+    android:background="@drawable/selector_restore_item"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp">
 
-    <com.google.android.material.textview.MaterialTextView
-        android:id="@+id/text"
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:id="@+id/content"
         android:layout_width="0dp"
-        android:layout_height="40dp"
+        android:layout_height="match_parent"
         android:layout_weight="1"
-        android:background="@drawable/selector_chip_round"
-        android:ellipsize="middle"
         android:focusable="true"
         android:focusableInTouchMode="true"
-        android:gravity="center"
-        android:singleLine="true"
-        android:textColor="@color/white"
-        android:textSize="18sp"
-        tools:text="tv-2024-12-26.bk.gz" />
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="#2F2934"
+            android:textSize="16sp"
+            tools:text="WebHomeTV - 5da881" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="#6E6873"
+            android:textSize="13sp"
+            tools:text="2026-06-09  |  2026/06/09 21:18:32" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
 
     <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/delete"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginStart="12dp"
-        android:background="@drawable/selector_chip_round"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/selector_restore_delete"
         android:focusable="true"
         android:focusableInTouchMode="true"
-        android:padding="8dp"
-        android:src="@drawable/ic_setting_delete" />
+        android:padding="7dp"
+        android:src="@drawable/ic_setting_delete"
+        app:tint="#4F4A54" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>
