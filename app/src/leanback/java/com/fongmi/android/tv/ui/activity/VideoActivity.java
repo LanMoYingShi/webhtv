@@ -16,6 +16,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.leanback.widget.OnChildViewHolderSelectedListener;
 import androidx.lifecycle.Observer;
@@ -466,6 +467,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.flag.setAdapter(mFlagAdapter = new FlagAdapter(this));
         mFlagAdapter.setOnKeyListener(this::focusEpisodeActionOnDown);
         mBinding.episode.setHorizontalSpacing(ResUtil.dp2px(8));
+        mBinding.episode.setVerticalSpacing(ResUtil.dp2px(8));
         mBinding.episode.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
         mBinding.episode.setAdapter(mEpisodeAdapter = new EpisodeAdapter(this));
         mBinding.quality.setHorizontalSpacing(ResUtil.dp2px(8));
@@ -801,6 +803,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         setEpisodeReverseText();
         mEpisodeAdapter.addAll(items);
         setArrayAdapter(items.size());
+        updateEpisodeWindow();
         setR2Callback();
     }
 
@@ -834,6 +837,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void setQualityVisible(boolean visible) {
         mBinding.quality.setVisibility(visible ? View.VISIBLE : View.GONE);
+        updateFocus();
+        updateEpisodeWindow();
         setR2Callback();
     }
 
@@ -853,7 +858,87 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void reverseEpisode(boolean scroll) {
         mFlagAdapter.reverse();
         setEpisodeAdapter(getFlag().getEpisodes());
-        if (scroll) mBinding.episode.setSelectedPosition(mEpisodeAdapter.getPosition());
+        if (scroll) scrollToCurrentEpisode();
+        else scrollToFirstEpisode();
+    }
+
+    private void scrollToCurrentEpisode() {
+        scrollToEpisode(mEpisodeAdapter.getPosition());
+    }
+
+    private void scrollToFirstEpisode() {
+        scrollToEpisode(0, true);
+    }
+
+    private void scrollToEpisode(int position) {
+        scrollToEpisode(position, false);
+    }
+
+    private void scrollToEpisode(int position, boolean requestFocus) {
+        if (position < 0 || position >= mEpisodeAdapter.getItemCount()) return;
+        mBinding.episode.post(() -> {
+            updateEpisodeWindowNow();
+            mBinding.episode.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                mBinding.episode.setSelectedPosition(position);
+                if (requestFocus) mBinding.episode.requestFocus();
+            });
+        });
+    }
+
+    private void updateEpisodeWindow() {
+        if (mEpisodeAdapter == null || mEpisodeAdapter.getItemCount() == 0) return;
+        mBinding.episode.post(this::updateEpisodeWindowNow);
+    }
+
+    private void updateEpisodeWindowNow() {
+        int height = getEpisodeWindowHeight();
+        if (height <= 0) return;
+        ViewGroup.LayoutParams params = mBinding.episode.getLayoutParams();
+        if (params instanceof LinearLayoutCompat.LayoutParams layoutParams) {
+            if (layoutParams.height == height && layoutParams.weight == 0) return;
+            layoutParams.height = height;
+            layoutParams.weight = 0;
+            mBinding.episode.setLayoutParams(layoutParams);
+        } else if (params.height != height) {
+            params.height = height;
+            mBinding.episode.setLayoutParams(params);
+        }
+    }
+
+    private int getEpisodeWindowHeight() {
+        int column = Math.max(1, mEpisodeAdapter.getColumn());
+        int totalRows = Math.max(1, (mEpisodeAdapter.getItemCount() + column - 1) / column);
+        int rowHeight = ResUtil.dp2px(40);
+        int spacing = mBinding.episode.getVerticalSpacing();
+        int maxRows = getEpisodeMaxRows(rowHeight, spacing);
+        int rows = Math.min(totalRows, maxRows);
+        return rowHeight * rows + spacing * Math.max(0, rows - 1) + mBinding.episode.getPaddingTop() + mBinding.episode.getPaddingBottom();
+    }
+
+    private int getEpisodeMaxRows(int rowHeight, int spacing) {
+        int legacyRows = ResUtil.getScreenHeight() < ResUtil.dp2px(560) ? 2 : 3;
+        int available = getEpisodeAvailableHeight();
+        if (available <= 0) return legacyRows;
+        int content = Math.max(0, available - mBinding.episode.getPaddingTop() - mBinding.episode.getPaddingBottom());
+        int rows = (content + spacing) / (rowHeight + spacing);
+        return Math.max(legacyRows, rows);
+    }
+
+    private int getEpisodeAvailableHeight() {
+        int height = mBinding.scroll.getHeight();
+        if (height <= 0) return 0;
+        int available = height - mBinding.scroll.getPaddingTop() - mBinding.scroll.getPaddingBottom();
+        ViewGroup.LayoutParams episodeParams = mBinding.episode.getLayoutParams();
+        if (episodeParams instanceof ViewGroup.MarginLayoutParams margins) available -= margins.topMargin + margins.bottomMargin;
+        for (int i = 0; i < mBinding.scroll.getChildCount(); i++) {
+            View child = mBinding.scroll.getChildAt(i);
+            if (child == mBinding.episode || child.getVisibility() == View.GONE) continue;
+            available -= child.getMeasuredHeight();
+            ViewGroup.LayoutParams params = child.getLayoutParams();
+            if (params instanceof ViewGroup.MarginLayoutParams margins) available -= margins.topMargin + margins.bottomMargin;
+        }
+        return available;
     }
 
     @Override
