@@ -23,6 +23,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.FragmentActivity;
@@ -162,9 +163,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private Clock mClock;
     private PiP mPiP;
     private VodPlayerControlController mControlController;
+    private final List<ShortDramaControlItem> mShortDramaControlItems = new ArrayList<>();
+    private ViewGroup mShortDramaControlDock;
+    private View mDanmakuControlParent;
     private String playHealthKey;
     private long detailStartTime;
     private long playerStartTime;
+    private boolean shortDramaControlsDocked;
 
     public static void push(FragmentActivity activity, String text) {
         if (FileChooser.isValid(activity, Uri.parse(text))) file(activity, FileChooser.getPathFromUri(Uri.parse(text)));
@@ -538,6 +543,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void setVideoView() {
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
+        mDanmakuControlParent = (View) mBinding.control.danmaku.getParent();
         setPlayer();
         updateSideControlMargins();
         mBinding.video.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> mPiP.update(this, view));
@@ -580,6 +586,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (scale < 0 || scale >= array.length) return;
         mBinding.exo.setResizeMode(scale);
         mBinding.control.action.scale.setText(array[scale]);
+    }
+
+    private void setShortDramaScale() {
+        if (mHistory == null) {
+            setPreviewScale(SHORT_DRAMA_SCALE);
+        } else if (mHistory.getScale() == -1) {
+            setScale(SHORT_DRAMA_SCALE);
+        } else {
+            setPreviewScale(getScale());
+        }
     }
 
     private void setViewModel() {
@@ -1066,7 +1082,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void onSetting() {
-        if (isFullscreen()) DisplayDialog.show(this, this::applyDisplaySettings);
+        if (isFullscreen() && !isShortDramaSource()) DisplayDialog.show(this, this::applyDisplaySettings);
         else ControlDialog.create().parent(mBinding).history(mHistory).parse(isUseParse()).player(player()).show(this);
     }
 
@@ -1257,8 +1273,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void applyShortDramaMode() {
         if (!isShortDramaSource()) return;
         enterShortDramaFullscreen();
-        setPreviewScale(SHORT_DRAMA_SCALE);
-        mBinding.exo.postDelayed(() -> setPreviewScale(SHORT_DRAMA_SCALE), 250);
+        setShortDramaScale();
+        mBinding.exo.postDelayed(this::setShortDramaScale, 250);
         hideControl();
     }
 
@@ -1271,7 +1287,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             setControlSizeVisibility();
             mKeyDown.resetScale();
         }
-        setPreviewScale(SHORT_DRAMA_SCALE);
+        setShortDramaScale();
         hideControl();
     }
 
@@ -1356,6 +1372,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         boolean shortDrama = isShortDramaSource();
         mBinding.control.danmaku.setVisibility(isLock() || !hasDanmakuControl() ? View.GONE : View.VISIBLE);
         mBinding.control.setting.setVisibility(mHistory == null || isLock() ? View.GONE : View.VISIBLE);
+        mBinding.control.setting.setImageResource(R.drawable.ic_control_setting);
         mBinding.control.right.rotate.setVisibility(isFullscreen() && !isLock() && !shortDrama ? View.VISIBLE : View.GONE);
         mBinding.control.right.pip.setVisibility(canShowPiP(shortDrama) ? View.VISIBLE : View.GONE);
         mBinding.control.keep.setVisibility(mHistory == null ? View.GONE : View.VISIBLE);
@@ -1370,6 +1387,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.top.setVisibility(isLock() ? View.GONE : View.VISIBLE);
+        syncShortDramaControlLayout(shortDrama);
         mBinding.control.seek.setVisibility(View.VISIBLE);
         updateControlStatus();
         setControlTitleVisibility();
@@ -1443,7 +1461,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void updateControlStatus() {
-        boolean showBattery = isFullscreen() && !isLock();
+        boolean showBattery = isFullscreen() && !isLock() && !isShortDramaSource();
         mBinding.control.batteryInfo.setVisibility(showBattery ? View.VISIBLE : View.GONE);
         if (!showBattery) return;
         updateControlTime();
@@ -2010,13 +2028,85 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         updateSideControlMargins();
     }
 
+    private void syncShortDramaControlLayout(boolean shortDrama) {
+        if (!shortDrama) {
+            restoreShortDramaControls();
+            return;
+        }
+        dockShortDramaControls();
+        mBinding.control.action.getRoot().setVisibility(View.GONE);
+        mBinding.control.batteryInfo.setVisibility(View.GONE);
+        mBinding.control.info.setVisibility(View.GONE);
+        mBinding.control.intro.setVisibility(View.GONE);
+        if (mShortDramaControlDock != null) mShortDramaControlDock.setVisibility(isLock() ? View.GONE : View.VISIBLE);
+    }
+
+    private void dockShortDramaControls() {
+        ViewGroup dock = getShortDramaControlDock();
+        if (shortDramaControlsDocked) return;
+        for (ShortDramaControlItem item : getShortDramaControlItems()) {
+            ViewGroup parent = (ViewGroup) item.view.getParent();
+            if (parent != null) parent.removeView(item.view);
+            dock.addView(item.view, item.layoutParams);
+        }
+        shortDramaControlsDocked = true;
+    }
+
+    private void restoreShortDramaControls() {
+        if (!shortDramaControlsDocked) return;
+        for (ShortDramaControlItem item : getShortDramaControlItems()) {
+            ViewGroup parent = (ViewGroup) item.view.getParent();
+            if (parent != null) parent.removeView(item.view);
+            item.parent.addView(item.view, Math.min(item.index, item.parent.getChildCount()), item.layoutParams);
+        }
+        if (mShortDramaControlDock != null && mShortDramaControlDock.getParent() instanceof ViewGroup) {
+            ((ViewGroup) mShortDramaControlDock.getParent()).removeView(mShortDramaControlDock);
+        }
+        shortDramaControlsDocked = false;
+    }
+
+    private ViewGroup getShortDramaControlDock() {
+        ViewGroup right = mBinding.control.right.getRoot();
+        if (mShortDramaControlDock == null) {
+            LinearLayoutCompat dock = new LinearLayoutCompat(this);
+            dock.setGravity(android.view.Gravity.CENTER);
+            dock.setOrientation(LinearLayoutCompat.VERTICAL);
+            mShortDramaControlDock = dock;
+        }
+        if (mShortDramaControlDock.getParent() != right) {
+            int index = Math.min(right.indexOfChild(mBinding.control.right.lock) + 1, right.getChildCount());
+            right.addView(mShortDramaControlDock, index, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        return mShortDramaControlDock;
+    }
+
+    private List<ShortDramaControlItem> getShortDramaControlItems() {
+        if (mShortDramaControlItems.isEmpty()) {
+            for (View view : getShortDramaControlViews()) {
+                if (view.getParent() instanceof ViewGroup) mShortDramaControlItems.add(new ShortDramaControlItem(view));
+            }
+        }
+        return mShortDramaControlItems;
+    }
+
+    private View[] getShortDramaControlViews() {
+        return new View[]{
+                mBinding.control.danmaku,
+                mBinding.control.cast,
+                mBinding.control.keep,
+                mBinding.control.action.episodes,
+                mBinding.control.setting,
+        };
+    }
+
     private void updateSideControlMargins() {
         int margin = ResUtil.dp2px(isFullscreen() && !isRotate() && !isShortDramaSource() ? SIDE_CONTROL_FULLSCREEN_MARGIN_DP : SIDE_CONTROL_MARGIN_DP);
-        setStartMargin((View) mBinding.control.danmaku.getParent(), margin);
+        setStartMargin(mDanmakuControlParent == null ? (View) mBinding.control.danmaku.getParent() : mDanmakuControlParent, margin);
         setEndMargin(mBinding.control.right.getRoot(), margin);
     }
 
     private void setStartMargin(View view, int margin) {
+        if (view == null) return;
         ViewGroup.LayoutParams params = view.getLayoutParams();
         if (!(params instanceof ViewGroup.MarginLayoutParams)) return;
         ViewGroup.MarginLayoutParams marginParams = (ViewGroup.MarginLayoutParams) params;
@@ -2025,6 +2115,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setEndMargin(View view, int margin) {
+        if (view == null) return;
         ViewGroup.LayoutParams params = view.getLayoutParams();
         if (!(params instanceof ViewGroup.MarginLayoutParams)) return;
         ViewGroup.MarginLayoutParams marginParams = (ViewGroup.MarginLayoutParams) params;
@@ -2046,6 +2137,21 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void setAutoMode(boolean autoMode) {
         this.autoMode = autoMode;
+    }
+
+    private static class ShortDramaControlItem {
+
+        private final View view;
+        private final ViewGroup parent;
+        private final ViewGroup.LayoutParams layoutParams;
+        private final int index;
+
+        private ShortDramaControlItem(View view) {
+            this.view = view;
+            this.parent = (ViewGroup) view.getParent();
+            this.layoutParams = view.getLayoutParams();
+            this.index = parent.indexOfChild(view);
+        }
     }
 
     public boolean isUseParse() {
