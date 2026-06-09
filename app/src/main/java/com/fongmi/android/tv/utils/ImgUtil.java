@@ -94,9 +94,13 @@ public class ImgUtil {
     }
 
     public static void hold(String url, ImageView view, boolean vod) {
+        hold(url, view, vod, true);
+    }
+
+    public static void hold(String url, ImageView view, boolean vod, boolean cancel) {
         Object oldTag = view.getTag(R.id.image);
         boolean same = TextUtils.equals(url, oldTag instanceof String ? (String) oldTag : null);
-        if (!same) cancel(view);
+        if (cancel && !same) cancel(view);
         view.setScaleType(vod ? CENTER_CROP : FIT_CENTER);
         if (!vod) view.setVisibility(TextUtils.isEmpty(url) ? View.GONE : View.VISIBLE);
         view.setTag(R.id.image, url);
@@ -164,6 +168,11 @@ public class ImgUtil {
         }
     }
 
+    private static boolean isCurrent(String url, ImageView view) {
+        Object tag = view.getTag(R.id.image);
+        return TextUtils.equals(url, tag instanceof String ? (String) tag : null);
+    }
+
     public static Object getUrl(String url) {
         String param = null;
         url = normalize(url);
@@ -204,6 +213,7 @@ public class ImgUtil {
         return new RequestListener<>() {
             @Override
             public boolean onLoadFailed(@Nullable GlideException e, Object model, @NonNull Target<Drawable> target, boolean isFirstResource) {
+                if (!isCurrent(url, view)) return true;
                 view.setImageDrawable(getTextDrawable(text, vod));
                 failed.add(url);
                 return true;
@@ -211,7 +221,7 @@ public class ImgUtil {
 
             @Override
             public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-                return false;
+                return !isCurrent(url, view);
             }
         };
     }

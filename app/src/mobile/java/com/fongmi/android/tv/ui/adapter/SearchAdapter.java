@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.AdapterSearchBinding;
 import com.fongmi.android.tv.databinding.AdapterSearchGridBinding;
+import com.fongmi.android.tv.ui.debug.SearchPerf;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 
@@ -20,13 +21,14 @@ import java.util.List;
 
 public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder> {
 
-    private static final int VIEW_TYPE_LIST = 1;
-    private static final int VIEW_TYPE_GRID = 2;
+    public static final int VIEW_TYPE_LIST = 1;
+    public static final int VIEW_TYPE_GRID = 2;
     private static final int LIST_NAME_MAX = 120;
     private static final int GRID_NAME_MAX = 48;
     private static final int REMARK_MAX = 40;
     private static final int SITE_MAX = 24;
     private static final int YEAR_MAX = 8;
+    public static final int GRID_MIN_WIDTH_DP = 96;
 
     private final OnClickListener listener;
     private final List<Vod> items;
@@ -61,9 +63,13 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
 
     @Override
     public void setItems(List<Vod> items, Runnable runnable) {
+        long start = SearchPerf.now();
+        int count = items == null ? 0 : items.size();
         this.items.clear();
         if (items != null) this.items.addAll(items);
         notifyDataSetChanged();
+        SearchPerf.slow("adapter.setItems", start, 16, "count=%d grid=%s columns=%d", count, isGrid(), columnCount);
+        SearchPerf.log("adapter setItems count=%d grid=%s columns=%d", count, isGrid(), columnCount);
         if (runnable != null) runnable.run();
     }
 
@@ -85,17 +91,23 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
             if (runnable != null) runnable.run();
             return;
         }
+        long start = SearchPerf.now();
         int position = this.items.size();
         this.items.addAll(items);
         notifyItemRangeInserted(position, items.size());
+        SearchPerf.slow("adapter.addAll", start, 16, "position=%d count=%d total=%d grid=%s columns=%d", position, items.size(), this.items.size(), isGrid(), columnCount);
+        SearchPerf.log("adapter addAll position=%d count=%d total=%d grid=%s columns=%d", position, items.size(), this.items.size(), isGrid(), columnCount);
         if (runnable != null) runnable.run();
     }
 
     @Override
     public void clear(Runnable runnable) {
+        long start = SearchPerf.now();
         int count = items.size();
         items.clear();
         if (count > 0) notifyItemRangeRemoved(0, count);
+        SearchPerf.slow("adapter.clear", start, 16, "count=%d", count);
+        SearchPerf.log("adapter clear count=%d", count);
         if (runnable != null) runnable.run();
     }
 
@@ -107,15 +119,21 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
     public void setColumnCount(int columnCount) {
         int count = Math.max(1, columnCount);
         if (this.columnCount == count) return;
+        long start = SearchPerf.now();
         this.columnCount = count;
         notifyDataSetChanged();
+        SearchPerf.slow("adapter.setColumnCount", start, 16, "columns=%d total=%d", count, items.size());
+        SearchPerf.log("adapter setColumnCount columns=%d total=%d", count, items.size());
     }
 
     public void setGridWidth(int gridWidth) {
         int width = Math.max(0, gridWidth);
         if (this.gridWidth == width) return;
+        long start = SearchPerf.now();
         this.gridWidth = width;
         if (isGrid()) notifyDataSetChanged();
+        SearchPerf.slow("adapter.setGridWidth", start, 16, "width=%d grid=%s total=%d", width, isGrid(), items.size());
+        SearchPerf.log("adapter setGridWidth width=%d grid=%s total=%d", width, isGrid(), items.size());
     }
 
     private boolean isGrid() {
@@ -157,13 +175,15 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
 
     private void loadGridImage(Vod item, ImageView image, String name) {
         if (!loadImages) {
-            ImgUtil.hold(item.getPic(), image, true);
+            SearchPerf.image(true, false, image.getWidth(), image.getHeight(), items.size());
+            ImgUtil.hold(item.getPic(), image, true, false);
             return;
         }
         int width = image.getWidth();
         int height = image.getHeight();
         if (width <= 0 && image.getParent() instanceof View parent) width = parent.getWidth();
         if (height <= 0) height = image.getLayoutParams().height;
+        SearchPerf.image(true, true, width, height, items.size());
         ImgUtil.loadThumb(name, item.getPic(), image, width, height);
     }
 
@@ -173,9 +193,11 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
 
     private void loadListImage(Vod item, ImageView image, String name) {
         if (!loadImages) {
-            ImgUtil.hold(item.getPic(), image, true);
+            SearchPerf.image(false, false, image.getWidth(), image.getHeight(), items.size());
+            ImgUtil.hold(item.getPic(), image, true, false);
             return;
         }
+        SearchPerf.image(false, true, image.getWidth(), image.getHeight(), items.size());
         ImgUtil.load(name, item.getPic(), image);
     }
 
@@ -220,18 +242,25 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        if (viewType == VIEW_TYPE_GRID) return new GridViewHolder(AdapterSearchGridBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false)).size(parent, columnCount);
-        return new ListViewHolder(AdapterSearchBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
+        long start = SearchPerf.now();
+        SearchPerf.create(viewType, columnCount, items.size());
+        RecyclerView.ViewHolder holder = viewType == VIEW_TYPE_GRID ? new GridViewHolder(AdapterSearchGridBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false)).size(parent, columnCount) : new ListViewHolder(AdapterSearchBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
+        SearchPerf.slow("adapter.create", start, 8, "viewType=%d columns=%d total=%d", viewType, columnCount, items.size());
+        return holder;
     }
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        long start = SearchPerf.now();
+        SearchPerf.bind(false, position, items.size(), columnCount);
         Vod item = getItem(position);
         if (holder instanceof GridViewHolder grid) {
             grid.bind(item);
+            SearchPerf.slow("adapter.bind", start, 8, "type=grid position=%d total=%d columns=%d", position, items.size(), columnCount);
             return;
         }
         ((ListViewHolder) holder).bind(item);
+        SearchPerf.slow("adapter.bind", start, 8, "type=list position=%d total=%d columns=%d", position, items.size(), columnCount);
     }
 
     @Override
@@ -240,17 +269,30 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
             onBindViewHolder(holder, position);
             return;
         }
+        long start = SearchPerf.now();
+        SearchPerf.bind(true, position, items.size(), columnCount);
         Vod item = getItem(position);
         if (holder instanceof GridViewHolder grid) {
             grid.bindImage(item);
+            SearchPerf.slow("adapter.payloadBind", start, 8, "type=grid position=%d total=%d", position, items.size());
             return;
         }
         ((ListViewHolder) holder).bindImage(item);
+        SearchPerf.slow("adapter.payloadBind", start, 8, "type=list position=%d total=%d", position, items.size());
     }
 
     @Override
     public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        SearchPerf.recycle(false, items.size());
         clearImage(holder);
+    }
+
+    @Override
+    public boolean onFailedToRecycleView(@NonNull RecyclerView.ViewHolder holder) {
+        SearchPerf.recycle(true, items.size());
+        clearImage(holder);
+        holder.itemView.clearAnimation();
+        return true;
     }
 
     private void clearImage(@NonNull RecyclerView.ViewHolder holder) {
@@ -307,7 +349,7 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
             int available = gridWidth;
             if (available <= 0) available = parent.getWidth() - parent.getPaddingStart() - parent.getPaddingEnd();
             if (available <= 0) return this;
-            int width = Math.max(ResUtil.dp2px(96), (available - margin * count) / count);
+            int width = Math.max(ResUtil.dp2px(GRID_MIN_WIDTH_DP), (available - margin * count) / count);
             int height = (int) (width / 0.75f);
             if (binding.getRoot().getLayoutParams().width != width) binding.getRoot().getLayoutParams().width = width;
             if (binding.image.getLayoutParams().height != height) binding.image.getLayoutParams().height = height;
