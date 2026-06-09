@@ -1443,8 +1443,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void updateControlStatus() {
-        mBinding.control.batteryInfo.setVisibility(isLock() ? View.GONE : View.VISIBLE);
-        if (isLock()) return;
+        boolean showBattery = isFullscreen() && !isLock();
+        mBinding.control.batteryInfo.setVisibility(showBattery ? View.VISIBLE : View.GONE);
+        if (!showBattery) return;
         updateControlTime();
         updateBatteryIcon();
     }

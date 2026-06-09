@@ -2916,8 +2916,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void updateMobileInlineControlStatus(boolean hasPlayer) {
         if (!Util.isMobile()) return;
         View batteryInfo = detailControlView(R.id.batteryInfo, View.class);
-        batteryInfo.setVisibility(hasPlayer && !isLock() ? View.VISIBLE : View.GONE);
-        if (!hasPlayer || isLock()) return;
+        boolean showBattery = hasPlayer && inlineFullscreen && !isLock();
+        batteryInfo.setVisibility(showBattery ? View.VISIBLE : View.GONE);
+        if (!showBattery) return;
         updateMobileInlineControlTime();
         updateMobileInlineBatteryIcon();
     }

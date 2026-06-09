@@ -61,6 +61,8 @@ public class VodPlayerControlController {
         String size = hasPlayer() ? player().getSizeText() : "";
         if (view.getId() == R.id.size || view.getId() == R.id.playerSize) {
             view.setBackground(null);
+            view.setSingleLine(true);
+            view.setEllipsize(TextUtils.TruncateAt.END);
         }
         if (view.getId() == R.id.size) {
             view.setPadding(0, 0, 0, 0);

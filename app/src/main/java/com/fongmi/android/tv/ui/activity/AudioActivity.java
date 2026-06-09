@@ -13,6 +13,8 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
@@ -258,12 +260,35 @@ public class AudioActivity extends PlaybackActivity {
         binding.playlist.setLayoutManager(new LinearLayoutManager(this));
         binding.playlist.setAdapter(playlistAdapter);
         playlistAdapter.setItems(episodes);
+        applyAudioInsets();
         setText();
         setCover();
         setMode(0, false);
         updateAudioToolState();
         super.initView(savedInstanceState);
         App.post(ticker);
+    }
+
+    private void applyAudioInsets() {
+        int contentLeft = binding.audioContent.getPaddingLeft();
+        int contentTop = binding.audioContent.getPaddingTop();
+        int contentRight = binding.audioContent.getPaddingRight();
+        int contentBottom = binding.audioContent.getPaddingBottom();
+        ViewGroup.MarginLayoutParams sheetBaseParams = (ViewGroup.MarginLayoutParams) binding.playlistSheet.getLayoutParams();
+        int sheetBottom = sheetBaseParams.bottomMargin;
+        ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (view, insets) -> {
+            int top = insets.getInsets(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.displayCutout()).top;
+            int bottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+            binding.audioContent.setPadding(contentLeft, contentTop + top, contentRight, contentBottom + bottom);
+            ViewGroup.MarginLayoutParams sheetParams = (ViewGroup.MarginLayoutParams) binding.playlistSheet.getLayoutParams();
+            int targetBottom = sheetBottom + bottom;
+            if (sheetParams.bottomMargin != targetBottom) {
+                sheetParams.bottomMargin = targetBottom;
+                binding.playlistSheet.setLayoutParams(sheetParams);
+            }
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(binding.getRoot());
     }
 
     @Override
