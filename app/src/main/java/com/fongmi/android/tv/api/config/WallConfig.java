@@ -4,12 +4,16 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.bean.Config;
 import com.fongmi.android.tv.event.ConfigEvent;
 import com.fongmi.android.tv.impl.Callback;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.utils.Download;
 import com.fongmi.android.tv.utils.FileUtil;
+import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.UrlUtil;
 import com.github.catvod.utils.Path;
 
@@ -74,9 +78,10 @@ public class WallConfig extends BaseConfig {
         File file = FileUtil.getWall(0);
         try {
             checkUrl(config.getUrl(), file);
-            setWallType(file);
+            int type = wallType(file);
             setSnapshot(file);
             Setting.putWall(0);
+            Setting.putWallType(type);
         } catch (Throwable e) {
             Path.clear(file);
             throw e;
@@ -94,32 +99,18 @@ public class WallConfig extends BaseConfig {
         if (!Path.exists(file)) throw new FileNotFoundException();
     }
 
-    private void setWallType(File file) {
-        Setting.putWallType(0);
-        if (isGif(file)) Setting.putWallType(1);
-        else if (isVideo(file)) Setting.putWallType(2);
+    private int wallType(File file) {
+        if (isGif(file)) return 1;
+        if (isVideo(file)) return 2;
+        return 0;
     }
 
     private void setSnapshot(File file) throws Throwable {
-        Bitmap bitmap = Setting.getWallType() == 2 ? videoFrame(file) : imageFrame(file);
-        if (bitmap == null) throw new RuntimeException("壁纸文件不是可识别的图片、GIF 或视频");
+        Bitmap bitmap = Glide.with(App.get()).asBitmap().frame(0).load(file).override(ResUtil.getScreenWidth(), ResUtil.getScreenHeight()).skipMemoryCache(true).diskCacheStrategy(DiskCacheStrategy.NONE).submit().get();
         try (FileOutputStream fos = new FileOutputStream(FileUtil.getWallCache())) {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
         } finally {
             bitmap.recycle();
-        }
-    }
-
-    private Bitmap imageFrame(File file) {
-        return BitmapFactory.decodeFile(file.getAbsolutePath());
-    }
-
-    private Bitmap videoFrame(File file) {
-        try (MediaMetadataRetriever retriever = new MediaMetadataRetriever()) {
-            retriever.setDataSource(file.getAbsolutePath());
-            return retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-        } catch (Exception e) {
-            return null;
         }
     }
 

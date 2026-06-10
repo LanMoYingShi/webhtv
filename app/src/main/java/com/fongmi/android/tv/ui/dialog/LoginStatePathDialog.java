@@ -21,6 +21,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 
@@ -53,6 +54,9 @@ public class LoginStatePathDialog extends BaseAlertDialog {
     private static final String ROOT_APP = "app";
     private static final String ROOT_SDCARD = "sdcard";
     private static final int INDENT_DP = 18;
+    private static final int MAX_EDIT_CHARS = 32 * 1024;
+    private static final int MAX_EDIT_LINE_CHARS = 1600;
+    private static final int TEXT_ROW_CHARS = 1200;
 
     private final Set<String> selected = new LinkedHashSet<>();
     private final Set<String> expanded = new LinkedHashSet<>();
@@ -114,7 +118,6 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         });
         binding.appTitle.setOnClickListener(v -> togglePanel(ROOT_APP));
         binding.sdcardTitle.setOnClickListener(v -> togglePanel(ROOT_SDCARD));
-        binding.reset.setOnClickListener(v -> reset());
         binding.selectSafe.setOnClickListener(v -> revealPending());
         binding.negative.setOnClickListener(v -> dismiss());
         binding.positive.setOnClickListener(v -> onPositive());
@@ -218,13 +221,6 @@ public class LoginStatePathDialog extends BaseAlertDialog {
             rows.add(new Row(new LoginStateSync.TreeItem(name(path), path, false, 0, 0, true), depth(path)));
             visible.add(path);
         }
-    }
-
-    private void reset() {
-        selected.clear();
-        appPanelTouched = false;
-        sdcardPanelTouched = false;
-        rebuild();
     }
 
     private void revealPending() {
@@ -392,18 +388,69 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         if (TextUtils.isEmpty(path)) return;
         Task.execute(() -> {
             try {
-                String content = LoginStateSync.read(path);
-                App.post(() -> showEditor(path, content));
+                LoginStateSync.TextPreview preview = LoginStateSync.preview(path);
+                PreviewPayload payload = PreviewPayload.create(preview);
+                App.post(() -> showEditor(payload));
             } catch (Exception e) {
                 App.post(() -> Notify.show(e.getMessage()));
             }
         });
     }
 
-    private void showEditor(String path, String content) {
+    private void showEditor(PreviewPayload payload) {
+        LoginStateSync.TextPreview preview = payload.preview;
         if (editor != null && editor.isShowing()) editor.dismiss();
+
+        LinearLayoutCompat container = new LinearLayoutCompat(requireContext());
+        container.setOrientation(LinearLayoutCompat.VERTICAL);
+        container.setPadding(ResUtil.dp2px(20), ResUtil.dp2px(8), ResUtil.dp2px(20), 0);
+        TextView label = new TextView(requireContext());
+        label.setText(preview.getPath());
+        label.setTextColor(Color.parseColor("#5F6368"));
+        label.setTextSize(12);
+        label.setSingleLine(true);
+        label.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+        container.addView(label, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        if (preview.isTruncated() || !preview.isEditable()) {
+            TextView meta = new TextView(requireContext());
+            meta.setText(preview.isTruncated() ? R.string.login_state_preview_truncated : R.string.login_state_preview_readonly);
+            meta.setTextColor(Color.parseColor("#8A4B00"));
+            meta.setTextSize(12);
+            meta.setPadding(0, ResUtil.dp2px(6), 0, 0);
+            container.addView(meta, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        LinearLayoutCompat.LayoutParams inputParams = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (ResUtil.getScreenHeight(requireContext()) * 0.52f));
+        inputParams.topMargin = ResUtil.dp2px(8);
+        SafeScrollEditText input = null;
+        if (payload.listPreview) {
+            RecyclerView previewList = new RecyclerView(requireContext());
+            previewList.setLayoutManager(new LinearLayoutManager(requireContext()));
+            previewList.setAdapter(new TextRowAdapter(payload.rows));
+            previewList.setBackground(editorBackground());
+            previewList.setClipToPadding(false);
+            previewList.setPadding(0, ResUtil.dp2px(4), 0, ResUtil.dp2px(4));
+            container.addView(previewList, inputParams);
+        } else {
+            input = editText(preview);
+            container.addView(input, inputParams);
+        }
+
+        editor = new MaterialAlertDialogBuilder(requireContext(), R.style.Theme_WebHTV_LightDialog)
+                .setTitle(R.string.login_state_edit)
+                .setView(container)
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setPositiveButton(R.string.dialog_positive, null)
+                .show();
+        editor.setCancelable(false);
+        editor.setCanceledOnTouchOutside(false);
+        editor.getButton(AlertDialog.BUTTON_POSITIVE).setVisibility(payload.editable ? View.VISIBLE : View.GONE);
+        SafeScrollEditText finalInput = input;
+        if (payload.editable && finalInput != null) editor.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> save(editor, preview.getPath(), finalInput.getText() == null ? "" : finalInput.getText().toString()));
+    }
+
+    private SafeScrollEditText editText(LoginStateSync.TextPreview preview) {
         SafeScrollEditText input = new SafeScrollEditText(requireContext());
-        input.setText(content, TextView.BufferType.EDITABLE);
+        input.setText(preview.getContent(), TextView.BufferType.EDITABLE);
         input.setSelectAllOnFocus(false);
         input.setSingleLine(false);
         input.setHorizontallyScrolling(true);
@@ -414,36 +461,15 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         input.setGravity(Gravity.START | Gravity.TOP);
         input.setBackground(editorBackground());
+        input.setCursorVisible(preview.isEditable());
+        if (!preview.isEditable()) input.setKeyListener(null);
         input.setOnTouchListener((view, event) -> {
             int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) view.getParent().requestDisallowInterceptTouchEvent(false);
             else view.getParent().requestDisallowInterceptTouchEvent(true);
             return false;
         });
-
-        LinearLayoutCompat container = new LinearLayoutCompat(requireContext());
-        container.setOrientation(LinearLayoutCompat.VERTICAL);
-        container.setPadding(ResUtil.dp2px(20), ResUtil.dp2px(8), ResUtil.dp2px(20), 0);
-        TextView label = new TextView(requireContext());
-        label.setText(path);
-        label.setTextColor(Color.parseColor("#5F6368"));
-        label.setTextSize(12);
-        label.setSingleLine(true);
-        label.setEllipsize(TextUtils.TruncateAt.MIDDLE);
-        container.addView(label, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        LinearLayoutCompat.LayoutParams inputParams = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (ResUtil.getScreenHeight(requireContext()) * 0.52f));
-        inputParams.topMargin = ResUtil.dp2px(8);
-        container.addView(input, inputParams);
-
-        editor = new MaterialAlertDialogBuilder(requireContext(), R.style.Theme_WebHTV_LightDialog)
-                .setTitle(R.string.login_state_edit)
-                .setView(container)
-                .setNegativeButton(R.string.dialog_negative, null)
-                .setPositiveButton(R.string.dialog_positive, null)
-                .show();
-        editor.setCancelable(false);
-        editor.setCanceledOnTouchOutside(false);
-        editor.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> save(editor, path, input.getText() == null ? "" : input.getText().toString()));
+        return input;
     }
 
     private GradientDrawable editorBackground() {
@@ -528,7 +554,8 @@ public class LoginStatePathDialog extends BaseAlertDialog {
     }
 
     private int iconFor(LoginStateSync.TreeItem item) {
-        return item.isDir() ? R.drawable.ic_folder : R.drawable.ic_login_state_file;
+        if (item.isDir()) return R.drawable.ic_folder;
+        return item.isText() ? R.drawable.ic_login_state_file : R.drawable.ic_file;
     }
 
     private int expandIconFor(Row row) {
@@ -630,6 +657,98 @@ public class LoginStatePathDialog extends BaseAlertDialog {
 
         private boolean isEmpty() {
             return selected == 0 && pending == 0;
+        }
+    }
+
+    private record PreviewPayload(LoginStateSync.TextPreview preview, List<String> rows, boolean listPreview, boolean editable) {
+
+        private static PreviewPayload create(LoginStateSync.TextPreview preview) {
+            List<String> rows = rows(preview.getContent());
+            boolean listPreview = !preview.isEditable() || preview.getContent().length() > MAX_EDIT_CHARS || maxLine(preview.getContent()) > MAX_EDIT_LINE_CHARS;
+            return new PreviewPayload(preview, rows, listPreview, preview.isEditable() && !listPreview);
+        }
+
+        private static int maxLine(String text) {
+            int max = 0;
+            int count = 0;
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                if (c == '\n' || c == '\r') {
+                    max = Math.max(max, count);
+                    count = 0;
+                } else {
+                    count++;
+                }
+            }
+            return Math.max(max, count);
+        }
+
+        private static List<String> rows(String text) {
+            List<String> result = new ArrayList<>();
+            String value = text == null ? "" : text;
+            int lineStart = 0;
+            for (int i = 0; i <= value.length(); i++) {
+                if (i < value.length() && value.charAt(i) != '\n' && value.charAt(i) != '\r') continue;
+                addChunks(result, value.substring(lineStart, i));
+                if (i + 1 < value.length() && value.charAt(i) == '\r' && value.charAt(i + 1) == '\n') i++;
+                lineStart = i + 1;
+            }
+            if (result.isEmpty()) result.add("");
+            return result;
+        }
+
+        private static void addChunks(List<String> result, String line) {
+            if (line.length() == 0) {
+                result.add("");
+                return;
+            }
+            for (int start = 0; start < line.length(); start += TEXT_ROW_CHARS) {
+                int end = Math.min(line.length(), start + TEXT_ROW_CHARS);
+                result.add(line.substring(start, end));
+            }
+        }
+    }
+
+    private static class TextRowAdapter extends RecyclerView.Adapter<TextRowAdapter.ViewHolder> {
+
+        private final List<String> rows;
+
+        private TextRowAdapter(List<String> rows) {
+            this.rows = rows;
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            TextView text = new TextView(parent.getContext());
+            text.setTextColor(Color.parseColor("#202124"));
+            text.setTextSize(12);
+            text.setTypeface(Typeface.MONOSPACE);
+            text.setLineSpacing(0, 1.08f);
+            text.setTextIsSelectable(true);
+            text.setPadding(ResUtil.dp2px(10), ResUtil.dp2px(3), ResUtil.dp2px(10), ResUtil.dp2px(3));
+            text.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            return new ViewHolder(text);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+            holder.text.setText(rows.get(position));
+        }
+
+        @Override
+        public int getItemCount() {
+            return rows.size();
+        }
+
+        private static class ViewHolder extends RecyclerView.ViewHolder {
+
+            private final TextView text;
+
+            private ViewHolder(@NonNull TextView itemView) {
+                super(itemView);
+                this.text = itemView;
+            }
         }
     }
 }

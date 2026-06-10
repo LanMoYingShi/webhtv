@@ -1,5 +1,7 @@
 const icDir = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5A623'><path d='M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z'/></svg>`;
 const icFile = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23717970'><path d='M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z'/></svg>`;
+const icTextFile = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%232F7D4F' d='M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z'/><path fill='%23FFFFFF' d='M13 4v5h5zM8 12h8v1.6H8zM8 15h8v1.6H8zM8 18h5v1.6H8z'/></svg>`;
+const icBinaryFile = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%237B1E3A' d='M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z'/><path fill='%23FFFFFF' d='M13 4v5h5zM8 12h3v3H8zM13 12h3v3h-3zM8 17h3v3H8zM13 17h3v3h-3z'/></svg>`;
 
 let mode = 'local';
 let currentView = 'files';
@@ -22,6 +24,7 @@ let loginStateLoadedKey = '';
 let loginStateData = null;
 let loginStatePaths = [];
 let currentLoginStatePath = '';
+let currentLoginStateEditable = false;
 let loginStateExpanded = new Set(['app', 'sdcard']);
 let loginStateTreeCache = {};
 let loginStateTreeLoading = new Set();
@@ -57,6 +60,9 @@ const SYNC_TIMEOUT = 600000;
 const REMOTE_HEALTH_INTERVAL = 6000;
 const REMOTE_HEALTH_BLOCK_MS = 18000;
 const CONFIG_UPLOAD_DIR = 'WebHTV/Config';
+const LOGIN_TEXTAREA_LIMIT = 32 * 1024;
+const LOGIN_TEXTAREA_LINE_LIMIT = 1600;
+const LOGIN_PREVIEW_ROW_CHARS = 1200;
 
 function escPath(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -798,6 +804,96 @@ function loginStatePendingItems() {
         .map(path => byPath[path] || { path, displayPath: path, confidence: 'pending', reason: '学习期间发生变化' });
 }
 
+function loginStateMeta(path) {
+    path = String(path || '');
+    for (const key of Object.keys(loginStateTreeCache || {})) {
+        const tree = loginStateTreeCache[key];
+        const item = ((tree && tree.items) || []).find(x => x && x.path === path);
+        if (item) return item;
+    }
+    return ((loginStateData && loginStateData.states) || []).find(item => item && item.path === path) || null;
+}
+
+function loginStateFileIcon(item) {
+    if (item && item.dir) return icDir;
+    if (item && item.text === true) return icTextFile;
+    if (item && item.fileType === 'binary') return icBinaryFile;
+    return icFile;
+}
+
+function loginStateTypeTitle(item) {
+    if (!item || item.dir) return '';
+    if (item.text === true) return '文本';
+    if (item.fileType === 'binary' || item.text === false) return '非文本';
+    return '文件';
+}
+
+function loginStatePreviewText(data) {
+    const parts = [];
+    if (data.encoding) parts.push(data.encoding);
+    if (data.size != null) parts.push(formatFileSize(Number(data.size || 0), false));
+    if (data.truncated) parts.push('只读预览，已截断');
+    else if (!data.editable) parts.push('只读预览');
+    return parts.join(' · ');
+}
+
+function loginStateUsePreviewList(data) {
+    const text = String((data && data.content) || '');
+    return !(data && data.editable) || text.length > LOGIN_TEXTAREA_LIMIT || loginStateMaxLine(text) > LOGIN_TEXTAREA_LINE_LIMIT;
+}
+
+function loginStateMaxLine(text) {
+    let max = 0;
+    let count = 0;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text.charAt(i);
+        if (ch === '\n' || ch === '\r') {
+            max = Math.max(max, count);
+            count = 0;
+        } else {
+            count++;
+        }
+    }
+    return Math.max(max, count);
+}
+
+function loginStatePreviewRows(text) {
+    const rows = [];
+    const value = String(text || '');
+    let start = 0;
+    for (let i = 0; i <= value.length; i++) {
+        if (i < value.length && value.charAt(i) !== '\n' && value.charAt(i) !== '\r') continue;
+        loginStateAddPreviewChunks(rows, value.substring(start, i));
+        if (i + 1 < value.length && value.charAt(i) === '\r' && value.charAt(i + 1) === '\n') i++;
+        start = i + 1;
+    }
+    if (!rows.length) rows.push('');
+    return rows;
+}
+
+function loginStateAddPreviewChunks(rows, line) {
+    if (!line.length) {
+        rows.push('');
+        return;
+    }
+    for (let start = 0; start < line.length; start += LOGIN_PREVIEW_ROW_CHARS) rows.push(line.substring(start, start + LOGIN_PREVIEW_ROW_CHARS));
+}
+
+function renderLoginStatePreviewContent(data) {
+    const content = (data && data.content) || '';
+    const listPreview = loginStateUsePreviewList(data);
+    currentLoginStateEditable = !!(data && data.editable) && !listPreview;
+    $('#loginStateContent')
+        .toggle(!listPreview)
+        .val(listPreview ? '' : content)
+        .prop('readonly', !currentLoginStateEditable)
+        .toggleClass('readonly-code', !currentLoginStateEditable);
+    $('#loginStatePreviewList')
+        .toggle(listPreview)
+        .html(listPreview ? loginStatePreviewRows(content).map(row => `<div class="file-preview-row">${row ? escHtml(row) : '&nbsp;'}</div>`).join('') : '');
+    $('#loginStateSaveBtn').prop('disabled', !currentLoginStateEditable).toggle(currentLoginStateEditable);
+}
+
 function buildLoginStateRow(item, type) {
     const path = item.path || '';
     const ep = escPath(path);
@@ -874,20 +970,31 @@ function saveLoginStatePaths() {
 
 function openLoginStateFile(path) {
     if (!path) return;
+    const meta = loginStateMeta(path);
+    if (meta && meta.text === false) {
+        warnToast('非文本文件不能查看内容');
+        return;
+    }
     postJson('/manage/login-state/file', { path }, data => {
         currentLoginStatePath = data.path || path;
         $('#loginStatePath').text(data.displayPath || currentLoginStatePath);
-        $('#loginStateContent').val(data.content || '');
+        $('#loginStatePreviewMeta').text(loginStatePreviewText(data)).toggle(!!loginStatePreviewText(data));
+        renderLoginStatePreviewContent(data);
         openDialog('loginStateEditorDialog');
-        setTimeout(() => $('#loginStateContent').trigger('focus'), 80);
+        if (currentLoginStateEditable) setTimeout(() => $('#loginStateContent').trigger('focus'), 80);
     }, '登录态文件读取失败');
 }
 
 function saveLoginStateFile() {
     if (!currentLoginStatePath) return;
+    if (!currentLoginStateEditable) {
+        warnToast('只读预览不能保存');
+        return;
+    }
     const content = $('#loginStateContent').val();
     postJson('/manage/login-state/file', { path: currentLoginStatePath, content }, data => {
-        $('#loginStateContent').val(data.content || '');
+        $('#loginStatePreviewMeta').text(loginStatePreviewText(data)).toggle(!!loginStatePreviewText(data));
+        renderLoginStatePreviewContent(data);
         addLoginStatePath(data.path || currentLoginStatePath);
         saveLoginStatePaths();
         warnToast('登录态文件已保存');
@@ -1016,17 +1123,19 @@ function buildLoginStateTreeRow(item, depth) {
     const missing = item.missing || (((loginStateData && loginStateData.states) || []).some(x => x && x.path === path && x.exists === false));
     const checked = state === 'checked' ? ' checked' : '';
     const partial = state === 'partial' ? ' data-partial="1"' : '';
-    const badge = missing ? '<span class="login-state-badge missing">缺失</span>' : pending ? '<span class="login-state-badge pending">待确认</span>' : hasPending ? '<span class="login-state-badge pending">含待确认</span>' : state === 'checked' ? '<span class="login-state-badge selected">已选</span>' : state === 'partial' ? '<span class="login-state-badge partial">部分</span>' : '';
+    const stateBadge = missing ? '<span class="login-state-badge missing">缺失</span>' : pending ? '<span class="login-state-badge pending">待确认</span>' : hasPending ? '<span class="login-state-badge pending">含待确认</span>' : state === 'checked' ? '<span class="login-state-badge selected">已选</span>' : state === 'partial' ? '<span class="login-state-badge partial">部分</span>' : '';
+    const typeTitle = loginStateTypeTitle(item);
+    const typeBadge = typeTitle && !missing ? `<span class="login-state-badge file-type ${item.text === true ? 'text' : 'binary'}">${escHtml(typeTitle)}</span>` : '';
     const toggle = item.dir ? `<button class="login-tree-toggle" type="button" onclick="toggleLoginStateTree('${ep}')" aria-label="${loginStateExpanded.has(path) ? '收起' : '展开'}">${loginStateExpanded.has(path) ? '−' : '+'}</button>` : '<span class="login-tree-toggle placeholder"></span>';
-    const icon = item.dir ? icDir : icFile;
+    const icon = loginStateFileIcon(item);
     const click = item.dir ? `toggleLoginStateTree('${ep}')` : `openLoginStateFile('${ep}')`;
     return `<div class="login-tree-row ${item.dir ? 'dir' : 'file'} ${pending || hasPending ? 'pending' : ''} ${missing ? 'missing' : ''}" style="--depth:${depth}" data-path="${escHtml(path)}">
         ${toggle}
         <label class="tree-check login-tree-check"><input type="checkbox" onchange="toggleLoginStatePath('${ep}',this.checked)"${checked}${partial} aria-label="选择 ${escHtml(item.name || path)}"></label>
         <button class="login-tree-main" type="button" onclick="${click}">
             <img class="file-icon" src="${icon}" alt="">
-            <span>${escHtml(item.name || path)}</span>
-            ${badge}
+            <span class="login-tree-name">${escHtml(item.name || path)}</span>
+            <span class="login-tree-badges">${typeBadge}${stateBadge}</span>
         </button>
     </div>`;
 }
@@ -1862,10 +1971,12 @@ function configTypeName(type) {
     if (Number(type) === 2) return '壁纸';
     return '影视';
 }
-function showConfigDialog(type = 0, url = '', name = '') {
-    editingConfig = { type: Number(type || 0), oldUrl: url || '' };
-    configFilter = editingConfig.type;
+function showConfigDialog(type = null, url = '', name = '') {
+    const editing = !!url;
+    const selectedType = editing ? Number(type || 0) : Number(configFilter || 0);
+    editingConfig = { type: selectedType, oldUrl: url || '', editing };
     $('#configType').val(String(editingConfig.type));
+    $('#configTypeRow').toggle(editing);
     $('#configName').val(name || '');
     $('#configUrl').val(url || '');
     $('#configDialogTitle').text(url ? '编辑接口' : '新增接口');
@@ -1906,6 +2017,7 @@ function saveConfigDialog() {
     const save = () => postJson('/manage/configs', { type, name, url }, data => {
         configsData = data.items || [];
         configsLoadedKey = activeKey();
+        configFilter = type;
         renderConfigsManage();
         closeDialog('configDialog');
         warnToast('接口已保存');
