@@ -160,7 +160,10 @@ public class HomeWebBridge {
         String vodId = Json.safeString(payload, "vodId");
         String title = Json.safeString(payload, "title");
         String pic = Json.safeString(payload, "pic");
-        App.post(() -> VideoActivity.start(activity, siteKey, vodId, title, pic));
+        String mark = Json.safeString(payload, "mark");
+        if (TextUtils.isEmpty(mark)) mark = Json.safeString(payload, "vodRemarks");
+        final String playMark = mark;
+        App.post(() -> VideoActivity.start(activity, siteKey, vodId, title, pic, playMark));
         return "{}";
     }
 

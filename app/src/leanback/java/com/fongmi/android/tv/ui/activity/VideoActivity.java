@@ -1674,7 +1674,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void setPosition() {
-        if (mHistory != null) player().seekTo(Math.max(mHistory.getOpening(), mHistory.getPosition()));
+        if (mHistory == null) return;
+        long position = Math.max(mHistory.getOpening(), mHistory.getPosition());
+        if (position > 0) player().seekTo(position);
     }
 
     private void checkEnded(boolean notify) {

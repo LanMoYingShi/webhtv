@@ -4545,7 +4545,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             history.setKey(getHistoryKey());
             history.setCid(VodConfig.getCid());
         }
-        boolean same = isSameInlineHistoryEpisode(item, history);
+        boolean same = isHistoryEpisode(item, history);
         history.setPosition(same ? history.getPosition() : C.TIME_UNSET);
         history.setCid(VodConfig.getCid());
         history.setVodName(playbackHistoryName());
@@ -4555,10 +4555,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         history.setVodPic(playbackHistoryPic());
         history.setSpeed(normalizeInlineSpeed(history.getSpeed()));
         syncDanmakuCompatHistory();
-    }
-
-    private boolean isSameInlineHistoryEpisode(Episode episode, History item) {
-        return item != null && (episode.getUrl().equals(item.getEpisodeUrl()) || episode.matchesName(item.getEpisode()));
     }
 
     private void onKeep() {
