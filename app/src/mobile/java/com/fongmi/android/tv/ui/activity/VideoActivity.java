@@ -128,6 +128,7 @@ import java.util.function.Consumer;
 public class VideoActivity extends PlaybackActivity implements Clock.Callback, CustomKeyDown.Listener, TrackDialog.Listener, ControlDialog.Listener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, CastDialog.Listener, InfoDialog.Listener {
 
     private static final int SHORT_DRAMA_SCALE = 4;
+    private static final int SHORT_DRAMA_EDGE_MARGIN_DP = 12;
     protected static final String EXTRA_RESET_PLAYBACK_SPEED = "reset_playback_speed";
     private static final float NORMAL_SPEED = 1.0f;
     private static final int SIDE_CONTROL_MARGIN_DP = 4;
@@ -416,7 +417,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     protected void initView(Bundle savedInstanceState) {
         super.initView(savedInstanceState);
-        ViewCompat.setOnApplyWindowInsetsListener(mBinding.getRoot(), (v, insets) -> setStatusBar(insets));
+        ViewCompat.setOnApplyWindowInsetsListener(mBinding.getRoot(), (v, insets) -> {
+            setStatusBar(insets);
+            return insets;
+        });
         mKeyDown = CustomKeyDown.create(this, mBinding.exo);
         mFrameParams = mBinding.video.getLayoutParams();
         mBinding.progressLayout.showProgress();
@@ -518,7 +522,24 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         ViewGroup.LayoutParams lp = mBinding.statusBar.getLayoutParams();
         lp.height = top;
         mBinding.statusBar.setLayoutParams(lp);
+        applyControlInsets(insets);
         return insets;
+    }
+
+    private void applyControlInsets(WindowInsetsCompat insets) {
+        // Only short-drama (portrait fullscreen) needs vertical safe-area padding so the
+        // title/controls and edge overlays clear the camera notch (top) and R-corner (bottom).
+        // Landscape cutouts are handled horizontally by setRotate() padding the control root.
+        int cutoutTop = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top;
+        int cutoutBottom = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).bottom;
+        boolean apply = isFullscreen() && isShortDramaSource();
+        // Rounded corners are not reported as insets, so guarantee a baseline margin too.
+        int edge = ResUtil.dp2px(SHORT_DRAMA_EDGE_MARGIN_DP);
+        int safeTop = apply ? Math.max(cutoutTop, edge) : 0;
+        int safeBottom = apply ? Math.max(cutoutBottom, edge) : 0;
+        mBinding.control.top.setPadding(0, safeTop, 0, 0);
+        mBinding.control.bottom.setPadding(0, 0, 0, safeBottom);
+        mBinding.widget.getRoot().setPadding(0, safeTop, 0, safeBottom);
     }
 
     private void setRecyclerView() {
@@ -1275,6 +1296,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mKeyDown.resetScale();
         App.post(mR3, 2000);
         hideControl();
+        ViewCompat.requestApplyInsets(mBinding.getRoot());
     }
 
     private void applyShortDramaMode() {
@@ -1296,6 +1318,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         }
         setShortDramaScale();
         hideControl();
+        ViewCompat.requestApplyInsets(mBinding.getRoot());
     }
 
     private void finishShortDrama() {
@@ -1316,6 +1339,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         App.post(mR3, 2000);
         setRotate(false);
         hideControl();
+        ViewCompat.requestApplyInsets(mBinding.getRoot());
     }
 
     private void setTransition() {
